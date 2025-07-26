@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analytics API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2.5em;
+    }
+    .endpoint-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    button {
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      margin: 5px;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .result pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin: 0;
+      font-size: 12px;
+    }
+    .success {
+      border-left: 4px solid #4CAF50;
+    }
+    .error {
+      border-left: 4px solid #f44336;
+    }
+    select {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Analytics API Test Dashboard</h1>
+    
+    <!-- Overview Analytics -->
+    <div class="endpoint-section">
+      <h2>📈 Overview Analytics</h2>
+      <p>Test the comprehensive analytics overview endpoint</p>
+      <select id="overviewTimeRange">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button onclick="testOverviewAnalytics()">Test Overview API</button>
+      <div id="overviewResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Bot Analytics -->
+    <div class="endpoint-section">
+      <h2>🤖 Bot Analytics</h2>
+      <p>Test bot usage and performance analytics</p>
+      <select id="botTimeRange">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button onclick="testBotAnalytics()">Test Bot Analytics API</button>
+      <div id="botResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Call Analytics -->
+    <div class="endpoint-section">
+      <h2>📞 Call Analytics</h2>
+      <p>Test VAPI call analytics and metrics</p>
+      <select id="callTimeRange">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button onclick="testCallAnalytics()">Test Call Analytics API</button>
+      <div id="callResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Call Logs -->
+    <div class="endpoint-section">
+      <h2>📋 Call Logs</h2>
+      <p>Test call logs and transcript retrieval</p>
+      <select id="logTimeRange">
+        <option value="7d" selected>Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button onclick="testCallLogs()">Test Call Logs API</button>
+      <div id="logResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Session Analytics -->
+    <div class="endpoint-section">
+      <h2>👥 Session Analytics</h2>
+      <p>Test session tracking and user analytics</p>
+      <select id="sessionTimeRange">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button onclick="testSessionAnalytics()">Test Session Analytics API</button>
+      <div id="sessionResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Test All -->
+    <div class="endpoint-section">
+      <h2>🚀 Test All Endpoints</h2>
+      <p>Run all analytics API tests at once</p>
+      <button onclick="testAllEndpoints()">Test All Analytics APIs</button>
+      <div id="allResult" class="result" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    async function makeRequest(endpoint, params = {}) {
+      try {
+        const url = new URL(endpoint, window.location.origin);
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        return {
+          success: response.ok,
+          status: response.status,
+          data: data
+        };
+      } catch (error) {
+        return {
+          success: false,
+          status: 0,
+          data: { error: error.message }
+        };
+      }
+    }
+
+    function displayResult(elementId, result) {
+      const element = document.getElementById(elementId);
+      element.style.display = 'block';
+      element.className = `result ${result.success ? 'success' : 'error'}`;
+      element.innerHTML = `
+        <strong>Status: ${result.status}</strong><br>
+        <pre>${JSON.stringify(result.data, null, 2)}</pre>
+      `;
+    }
+
+    async function testOverviewAnalytics() {
+      const timeRange = document.getElementById('overviewTimeRange').value;
+      const result = await makeRequest('/api/analytics/overview', { timeRange });
+      displayResult('overviewResult', result);
+    }
+
+    async function testBotAnalytics() {
+      const timeRange = document.getElementById('botTimeRange').value;
+      const result = await makeRequest('/api/analytics/bots', { timeRange });
+      displayResult('botResult', result);
+    }
+
+    async function testCallAnalytics() {
+      const timeRange = document.getElementById('callTimeRange').value;
+      const result = await makeRequest('/api/analytics/calls', { timeRange });
+      displayResult('callResult', result);
+    }
+
+    async function testCallLogs() {
+      const timeRange = document.getElementById('logTimeRange').value;
+      const result = await makeRequest('/api/analytics/logs', { timeRange, limit: '10' });
+      displayResult('logResult', result);
+    }
+
+    async function testSessionAnalytics() {
+      const timeRange = document.getElementById('sessionTimeRange').value;
+      const result = await makeRequest('/api/analytics/sessions', { timeRange });
+      displayResult('sessionResult', result);
+    }
+
+    async function testAllEndpoints() {
+      const allElement = document.getElementById('allResult');
+      allElement.style.display = 'block';
+      allElement.className = 'result';
+      allElement.innerHTML = '<strong>Testing all endpoints...</strong>';
+
+      const tests = [
+        { name: 'Overview', func: testOverviewAnalytics },
+        { name: 'Bot Analytics', func: testBotAnalytics },
+        { name: 'Call Analytics', func: testCallAnalytics },
+        { name: 'Call Logs', func: testCallLogs },
+        { name: 'Session Analytics', func: testSessionAnalytics }
+      ];
+
+      const results = [];
+      
+      for (const test of tests) {
+        try {
+          await test.func();
+          results.push(`✅ ${test.name}: Success`);
+        } catch (error) {
+          results.push(`❌ ${test.name}: ${error.message}`);
+        }
+      }
+
+      allElement.innerHTML = `
+        <strong>All Tests Completed</strong><br>
+        <pre>${results.join('\n')}</pre>
+      `;
+    }
+
+    // Auto-test overview on page load
+    window.addEventListener('load', () => {
+      setTimeout(testOverviewAnalytics, 1000);
+    });
+  </script>
+</body>
+</html>

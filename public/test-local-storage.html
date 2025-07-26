@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Local File Storage Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2.5em;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+      box-sizing: border-box;
+    }
+    button {
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      margin: 5px;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+    .result.success {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+    }
+    .result.error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.5);
+    }
+    .file-list {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .file-item:last-child {
+      border-bottom: none;
+    }
+    .file-upload {
+      border: 2px dashed rgba(255, 255, 255, 0.5);
+      padding: 20px;
+      text-align: center;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .file-upload:hover {
+      border-color: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .file-upload input {
+      display: none;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗂️ Local File Storage Test</h1>
+    
+    <!-- Create RAG Bot Section -->
+    <div class="section">
+      <h2>📤 Create RAG Bot with Local Storage</h2>
+      <form id="createBotForm">
+        <div class="form-group">
+          <label for="botName">Bot Name:</label>
+          <input type="text" id="botName" name="botName" value="Local Storage Test Bot" required>
+        </div>
+
+        <div class="form-group">
+          <label for="welcomeMessage">Welcome Message:</label>
+          <textarea id="welcomeMessage" name="welcomeMessage" required>Hello! I'm your RAG-enabled voice assistant with local file storage.</textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="systemPrompt">System Prompt:</label>
+          <textarea id="systemPrompt" name="systemPrompt" required>You are a helpful AI assistant with access to uploaded documents stored locally.</textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Upload Documents:</label>
+          <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" multiple accept=".txt,.pdf,.csv,.json,.md">
+            <p>📁 Click to upload documents</p>
+          </div>
+          <div id="selectedFiles" class="file-list" style="display: none;"></div>
+        </div>
+
+        <button type="submit" id="createBtn">🚀 Create Bot with Local Storage</button>
+      </form>
+      <div id="createResult" class="result"></div>
+    </div>
+
+    <!-- List Bot Files Section -->
+    <div class="section">
+      <h2>📋 List Bot Files</h2>
+      <div class="form-group">
+        <label for="botUuid">Bot UUID:</label>
+        <input type="text" id="botUuid" placeholder="Enter bot UUID to list files">
+      </div>
+      <button onclick="listBotFiles()" id="listBtn">📂 List Files</button>
+      <div id="listResult" class="result"></div>
+    </div>
+
+    <!-- File Management Section -->
+    <div class="section">
+      <h2>📁 File Management</h2>
+      <p>Files will be stored in: <code>uploads/[bot-uuid]/</code></p>
+      <p>Security: Files are NOT publicly accessible via web server</p>
+      <p>Access: Only through authenticated API endpoints</p>
+    </div>
+  </div>
+
+  <script>
+    let selectedFiles = [];
+    let lastCreatedBotUuid = null;
+
+    // File selection handling
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      selectedFiles = Array.from(e.target.files);
+      updateFileList();
+    });
+
+    function updateFileList() {
+      const fileList = document.getElementById('selectedFiles');
+      if (selectedFiles.length === 0) {
+        fileList.style.display = 'none';
+        return;
+      }
+
+      fileList.style.display = 'block';
+      fileList.innerHTML = '<strong>Selected Files:</strong><br>' + 
+        selectedFiles.map(file => 
+          `<div class="file-item">
+            <span>📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+          </div>`
+        ).join('');
+    }
+
+    // Create bot with local storage
+    document.getElementById('createBotForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const createBtn = document.getElementById('createBtn');
+      const result = document.getElementById('createResult');
+      
+      createBtn.disabled = true;
+      createBtn.textContent = '🔄 Creating Bot...';
+      result.style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        
+        const config = {
+          botName: document.getElementById('botName').value,
+          welcomeMessage: document.getElementById('welcomeMessage').value,
+          systemPrompt: document.getElementById('systemPrompt').value,
+          language: 'en',
+          voice: 'jennifer',
+          position: 'right',
+          theme: 'dark',
+          ragEnabled: true,
+          ragSourceType: 'files',
+          ragUrl: ''
+        };
+
+        formData.append('config', JSON.stringify(config));
+
+        selectedFiles.forEach((file, index) => {
+          formData.append(`file_${index}`, file);
+        });
+
+        const response = await fetch('/api/bots/create', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          lastCreatedBotUuid = data.bot.uuid;
+          document.getElementById('botUuid').value = lastCreatedBotUuid;
+          
+          result.className = 'result success';
+          result.innerHTML = `
+            <h3>✅ Bot Created Successfully!</h3>
+            <p><strong>Bot UUID:</strong> <code>${data.bot.uuid}</code></p>
+            <p><strong>Local Files Stored:</strong> ${data.bot.localFilesStored || 0}</p>
+            <p><strong>Storage Path:</strong> <code>${data.bot.localStoragePath || 'None'}</code></p>
+            <p><strong>VAPI Assistant:</strong> ${data.bot.vapiAssistantId || 'Not created'}</p>
+            <div style="margin-top: 10px;">
+              <strong>Storage Details:</strong>
+              <ul>
+                <li>Local Storage: ${data.storage?.local?.enabled ? '✅ Enabled' : '❌ Disabled'}</li>
+                <li>Files Stored Locally: ${data.storage?.local?.filesStored || 0}</li>
+                <li>Google Drive: ${data.storage?.googleDrive?.enabled ? '✅ Enabled' : '❌ Disabled'}</li>
+              </ul>
+            </div>
+          `;
+        } else {
+          result.className = 'result error';
+          result.innerHTML = `
+            <h3>❌ Bot Creation Failed</h3>
+            <p><strong>Error:</strong> ${data.error}</p>
+          `;
+        }
+      } catch (error) {
+        result.className = 'result error';
+        result.innerHTML = `
+          <h3>❌ Request Failed</h3>
+          <p><strong>Error:</strong> ${error.message}</p>
+        `;
+      }
+
+      result.style.display = 'block';
+      createBtn.disabled = false;
+      createBtn.textContent = '🚀 Create Bot with Local Storage';
+    });
+
+    // List bot files
+    async function listBotFiles() {
+      const botUuid = document.getElementById('botUuid').value.trim();
+      const listBtn = document.getElementById('listBtn');
+      const result = document.getElementById('listResult');
+      
+      if (!botUuid) {
+        alert('Please enter a bot UUID');
+        return;
+      }
+
+      listBtn.disabled = true;
+      listBtn.textContent = '🔄 Loading...';
+      result.style.display = 'none';
+
+      try {
+        const response = await fetch(`/api/bots/${botUuid}/files`);
+        const data = await response.json();
+
+        if (data.success) {
+          result.className = 'result success';
+          result.innerHTML = `
+            <h3>📂 Files for Bot: ${data.botUuid}</h3>
+            <p><strong>Total Files:</strong> ${data.totalFiles}</p>
+            ${data.files.length > 0 ? `
+              <div class="file-list">
+                ${data.files.map(file => `
+                  <div class="file-item">
+                    <span>📄 ${file.name}</span>
+                    <button onclick="downloadFile('${data.botUuid}', '${file.name}')">⬇️ Download</button>
+                  </div>
+                `).join('')}
+              </div>
+            ` : '<p>No files found for this bot.</p>'}
+            ${data.metadata ? `
+              <details style="margin-top: 15px;">
+                <summary>Bot Metadata</summary>
+                <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;">${JSON.stringify(data.metadata, null, 2)}</pre>
+              </details>
+            ` : ''}
+          `;
+        } else {
+          result.className = 'result error';
+          result.innerHTML = `
+            <h3>❌ Failed to List Files</h3>
+            <p><strong>Error:</strong> ${data.error}</p>
+          `;
+        }
+      } catch (error) {
+        result.className = 'result error';
+        result.innerHTML = `
+          <h3>❌ Request Failed</h3>
+          <p><strong>Error:</strong> ${error.message}</p>
+        `;
+      }
+
+      result.style.display = 'block';
+      listBtn.disabled = false;
+      listBtn.textContent = '📂 List Files';
+    }
+
+    // Download file
+    async function downloadFile(botUuid, filename) {
+      try {
+        const response = await fetch(`/api/bots/${botUuid}/files/${encodeURIComponent(filename)}`);
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          const errorData = await response.json();
+          alert(`Download failed: ${errorData.error}`);
+        }
+      } catch (error) {
+        alert(`Download failed: ${error.message}`);
+      }
+    }
+  </script>
+</body>
+</html>
