@@ -16,23 +16,15 @@ const nextConfig: NextConfig = {
 
   // Webpack configuration for Azure compatibility
   webpack: (config, { isServer }) => {
-    // Fix for Clerk.js module resolution in Azure
+    // Simple fallback for missing Next.js internal modules
     config.resolve.fallback = {
       ...config.resolve.fallback,
       "next/dist/server/route-modules/app-page/vendored/contexts/loadable": false,
     };
 
-    // Additional module resolution for Azure
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "next/dynamic": require.resolve("next/dynamic"),
-      // Fix for missing loadable context with polyfill
-      "next/dist/server/route-modules/app-page/vendored/contexts/loadable": require.resolve("./src/lib/loadable-polyfill.js"),
-    };
-
-    // Ignore missing modules that are not critical
-    config.externals = config.externals || [];
+    // Ignore missing modules in externals
     if (!isServer) {
+      config.externals = config.externals || [];
       config.externals.push({
         "next/dist/server/route-modules/app-page/vendored/contexts/loadable": "{}",
       });
