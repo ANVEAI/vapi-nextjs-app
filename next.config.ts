@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
+  // Force dynamic rendering to avoid build-time environment variable issues
+  output: 'standalone',
+
   // Security: Block access to uploads directory
   async rewrites() {
     return [

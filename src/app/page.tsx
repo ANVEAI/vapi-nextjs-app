@@ -6,6 +6,9 @@ import { CTASection } from "@/components/CTASection";
 import { Footer } from "@/components/Footer";
 import { VoiceBot } from "@/components/VoiceBot";
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">

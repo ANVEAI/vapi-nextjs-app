@@ -15,11 +15,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Provide fallback for build process
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_fallback';
-
   return (
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider>
       <html lang="en">
         <body className={`${inter.className} antialiased`}>
           {children}
