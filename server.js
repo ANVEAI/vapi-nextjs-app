@@ -2,12 +2,13 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+// Force production mode for Azure
+const dev = false;
+const hostname = '0.0.0.0';
 const port = process.env.PORT || 8080;
 
 // When using middleware `hostname` and `port` must be provided below
-const app = next({ dev, hostname, port });
+const app = next({ dev, hostname, port, dir: '.' });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
