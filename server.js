@@ -74,14 +74,26 @@ function runBuild() {
   });
 }
 
-// Check if build is needed (if .next directory doesn't exist)
+// Check if build is needed (if .next directory doesn't exist or is incomplete)
 async function ensureBuild() {
   const nextDir = path.join(__dirname, '.next');
-  if (!fs.existsSync(nextDir)) {
-    console.log('🔨 .next directory not found, running build...');
+  const buildIdFile = path.join(nextDir, 'BUILD_ID');
+  const serverDir = path.join(nextDir, 'server');
+
+  // Check if .next directory exists and has required files for production
+  const hasCompleteeBuild = fs.existsSync(nextDir) &&
+                           fs.existsSync(buildIdFile) &&
+                           fs.existsSync(serverDir);
+
+  if (!hasCompleteeBuild) {
+    if (fs.existsSync(nextDir)) {
+      console.log('🔨 .next directory exists but build is incomplete, running build...');
+    } else {
+      console.log('🔨 .next directory not found, running build...');
+    }
     await runBuild();
   } else {
-    console.log('✅ .next directory exists, skipping build');
+    console.log('✅ Complete .next build found, skipping build');
   }
 }
 

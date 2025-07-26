@@ -14,12 +14,6 @@ const nextConfig: NextConfig = {
   // Azure App Service optimization
   output: 'standalone',
 
-  // Optimize for Azure deployment
-  experimental: {
-    // Disable SWC minify for Azure compatibility
-    swcMinify: false,
-  },
-
   // Ensure proper server configuration for Azure
   serverRuntimeConfig: {
     // Will only be available on the server side
