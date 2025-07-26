@@ -10,7 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.25.4",
+    "@clerk/nextjs": "^6.30.0",
     "@vapi-ai/web": "^2.3.8",
     "dequal": "^2.0.3",
     "googleapis": "^153.0.0",
