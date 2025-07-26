@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next build && next start -p ${PORT:-8080}",
+    "start": "./node_modules/.bin/next build && ./node_modules/.bin/next start -p ${PORT:-8080}",
     "lint": "next lint"
   },
   "dependencies": {
