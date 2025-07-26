@@ -14,23 +14,6 @@ const nextConfig: NextConfig = {
   // Force dynamic rendering to avoid build-time environment variable issues
   output: 'standalone',
 
-  // Configure for Azure deployment
-  experimental: {
-    outputFileTracingRoot: undefined,
-    esmExternals: false,
-  },
-
-  // Ensure proper module resolution
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push({
-        'next/dist/server/route-modules/app-page/vendored/contexts/loadable': 'next/dist/server/route-modules/app-page/vendored/contexts/loadable'
-      });
-    }
-    return config;
-  },
-
   // Security: Block access to uploads directory
   async rewrites() {
     return [
