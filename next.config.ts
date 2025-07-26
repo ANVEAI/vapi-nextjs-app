@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   // Force dynamic rendering to avoid build-time environment variable issues
   output: 'standalone',
 
+  // Configure for Azure deployment
+  experimental: {
+    outputFileTracingRoot: undefined,
+  },
+
   // Security: Block access to uploads directory
   async rewrites() {
     return [
