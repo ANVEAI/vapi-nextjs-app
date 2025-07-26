@@ -5,6 +5,9 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "VAPI Voice Bot Platform - Create AI Voice Assistants",
   description: "Build and deploy custom AI voice bots with advanced RAG capabilities, voice navigation, and seamless integration.",
