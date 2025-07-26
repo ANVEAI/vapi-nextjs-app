@@ -11,8 +11,22 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Force dynamic rendering to avoid build-time environment variable issues
+  // Azure App Service optimization
   output: 'standalone',
+
+  // Optimize for Azure deployment
+  experimental: {
+    // Disable SWC minify for Azure compatibility
+    swcMinify: false,
+  },
+
+  // Ensure proper server configuration for Azure
+  serverRuntimeConfig: {
+    // Will only be available on the server side
+  },
+  publicRuntimeConfig: {
+    // Will be available on both server and client side
+  },
 
   // Security: Block access to uploads directory
   async rewrites() {

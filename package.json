@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "npx next build && npx next start -p ${PORT:-8080}",
+    "start": "node server.js",
+    "start:azure": "npm run build && node server.js",
     "lint": "next lint"
   },
   "dependencies": {

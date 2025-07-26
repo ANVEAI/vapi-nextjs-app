@@ -1,0 +1,20 @@
+# Azure App Service iisnode configuration for Next.js VAPI application
+
+# Logging
+loggingEnabled: true
+logDirectory: iisnode
+
+# Performance
+nodeProcessCountPerApplication: 1
+maxConcurrentRequestsPerProcess: 1024
+maxNamedPipeConnectionRetry: 3
+namedPipeConnectionRetryDelay: 2000
+
+# Timeouts
+gracefulShutdownTimeout: 60000
+
+# Environment
+node_env: production
+
+# Debugging (disabled for production)
+debuggingEnabled: false
