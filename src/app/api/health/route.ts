@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkDatabaseHealth, connectToDatabase } from '@/lib/database';
 import { databaseCircuitBreaker } from '@/lib/middleware/databaseMiddleware';
+import { prisma } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +14,17 @@ export async function GET(request: NextRequest) {
     // Get circuit breaker state
     const circuitState = databaseCircuitBreaker.getState();
     
+    // Test if tables exist
+    let tablesExist = false;
+    try {
+      await prisma.user.count();
+      tablesExist = true;
+    } catch (error) {
+      console.warn('Tables may not exist yet:', error);
+    }
+    
     // Determine overall health status
-    const isHealthy = connectionTest && health.healthy && circuitState.state !== 'OPEN';
+    const isHealthy = connectionTest && health.healthy && circuitState.state !== 'OPEN' && tablesExist;
     
     const response = {
       success: true,
@@ -23,6 +33,7 @@ export async function GET(request: NextRequest) {
       database: {
         connection: connectionTest,
         health: health.healthy,
+        tablesExist: tablesExist,
         message: health.message,
         circuitBreaker: {
           state: circuitState.state,
@@ -56,6 +67,7 @@ export async function GET(request: NextRequest) {
       database: {
         connection: false,
         health: false,
+        tablesExist: false,
         message: 'Health check failed',
         circuitBreaker: databaseCircuitBreaker.getState()
       }

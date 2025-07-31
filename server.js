@@ -6,64 +6,64 @@ const path = require('path');
 const fs = require('fs');
 
 // Force production mode for Azure
-const dev = false;
-const hostname = '0.0.0.0';
-const port = process.env.PORT || 8080;
+const dev = process.env.NODE_ENV !== 'production';
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+const port = parseInt(process.env.PORT || '8080', 10);
+
+// Initialize Next.js app
+const app = next({ dev, hostname, port });
+const handle = app.getRequestHandler();
+
+// Utility function to run shell commands
+async function runCommand(command, args = []) {
+  console.log(`🔧 Running: ${command} ${args.join(' ')}`);
+  
+  return new Promise((resolve, reject) => {
+    const process = spawn(command, args, { stdio: 'inherit', shell: true });
+    
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Command failed with code ${code}`));
+      }
+    });
+    
+    process.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
 
 // Function to run Prisma setup
 async function setupPrisma() {
   console.log('🗄️ Setting up Prisma database...');
   
-  return new Promise((resolve, reject) => {
-    // First, generate Prisma client
-    console.log('🔄 Generating Prisma client...');
-    const generateProcess = spawn('npx', ['prisma', 'generate'], {
-      stdio: 'inherit',
-      cwd: __dirname
-    });
-
-    generateProcess.on('close', (code) => {
-      if (code === 0) {
-        console.log('✅ Prisma client generated successfully');
-        
-        // Then, push database schema
-        console.log('🔄 Pushing database schema...');
-        const pushProcess = spawn('npx', ['prisma', 'db', 'push', '--accept-data-loss'], {
-          stdio: 'inherit',
-          cwd: __dirname
-        });
-
-        pushProcess.on('close', (pushCode) => {
-          if (pushCode === 0) {
-            console.log('✅ Database schema pushed successfully');
-            resolve();
-          } else {
-            console.error(`❌ Database schema push failed with code ${pushCode}`);
-            // Don't reject here, continue with app startup
-            console.log('⚠️ Continuing with app startup despite database setup issues...');
-            resolve();
-          }
-        });
-
-        pushProcess.on('error', (error) => {
-          console.error('❌ Error during database schema push:', error);
-          console.log('⚠️ Continuing with app startup despite database setup issues...');
-          resolve();
-        });
-
-      } else {
-        console.error(`❌ Prisma client generation failed with code ${code}`);
-        console.log('⚠️ Continuing with app startup despite Prisma setup issues...');
-        resolve();
-      }
-    });
-
-    generateProcess.on('error', (error) => {
-      console.error('❌ Error during Prisma client generation:', error);
-      console.log('⚠️ Continuing with app startup despite Prisma setup issues...');
-      resolve();
-    });
-  });
+  try {
+    // Generate Prisma client
+    console.log('🔧 Generating Prisma client...');
+    await runCommand('npx', ['prisma', 'generate']);
+    console.log('✅ Prisma client generated successfully');
+    
+    // Run migrations (if any)
+    try {
+      await runCommand('npx', ['prisma', 'migrate', 'deploy']);
+      console.log('✅ Prisma migrations completed successfully');
+    } catch (error) {
+      console.warn('⚠️ Prisma migrations failed (this might be expected):', error.message);
+      // Don't throw - migrations might fail in some environments
+    }
+    
+    // Push schema to database
+    console.log('🔧 Pushing database schema...');
+    await runCommand('npx', ['prisma', 'db', 'push', '--accept-data-loss']);
+    console.log('✅ Database schema pushed successfully');
+    
+  } catch (error) {
+    console.error('❌ Prisma setup failed:', error.message);
+    console.log('⚠️ Continuing with app startup despite Prisma setup issues...');
+    // Don't throw - continue with app startup
+  }
 }
 
 // Function to find Next.js binary
@@ -137,11 +137,11 @@ async function ensureBuild() {
   const serverDir = path.join(nextDir, 'server');
 
   // Check if .next directory exists and has required files for production
-  const hasCompleteeBuild = fs.existsSync(nextDir) &&
+  const hasCompleteBuild = fs.existsSync(nextDir) &&
                            fs.existsSync(buildIdFile) &&
                            fs.existsSync(serverDir);
 
-  if (!hasCompleteeBuild) {
+  if (!hasCompleteBuild) {
     if (fs.existsSync(nextDir)) {
       console.log('🔨 .next directory exists but build is incomplete, running build...');
     } else {
@@ -153,10 +153,6 @@ async function ensureBuild() {
   }
 }
 
-// When using middleware `hostname` and `port` must be provided below
-const app = next({ dev, hostname, port, dir: '.' });
-const handle = app.getRequestHandler();
-
 // Start the application
 async function startServer() {
   try {
@@ -164,6 +160,7 @@ async function startServer() {
     console.log(`📍 Working directory: ${__dirname}`);
     console.log(`🔧 Node version: ${process.version}`);
     console.log(`🌐 Port: ${port}`);
+    console.log(`🎯 Environment: ${dev ? 'development' : 'production'}`);
 
     // CRITICAL: Setup Prisma database first
     await setupPrisma();

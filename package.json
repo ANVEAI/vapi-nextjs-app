@@ -4,15 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "node server.js",
     "start:azure": "npm run build && node server.js",
-    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset --force",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:setup": "npm run db:generate && npm run db:push",
-    "deploy:azure": "npm run db:setup && npm run build",
-    "postinstall": "prisma generate"
+    "deploy:azure": "node scripts/deploy-azure.js",
+    "test:db": "node scripts/test-db-connection.js",
+    "health:check": "curl -f http://localhost:8080/api/health || exit 1",
+    "lint": "next lint"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.25.4",

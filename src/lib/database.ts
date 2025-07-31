@@ -107,6 +107,12 @@ export function handleDatabaseError(error: unknown): {
             code: 'FOREIGN_KEY_CONSTRAINT',
             statusCode: 400,
           };
+        case 'P2014':
+          return {
+            message: 'Invalid ID provided',
+            code: 'INVALID_ID',
+            statusCode: 400,
+          };
         default:
           return {
             message: `Database error: ${prismaError.message}`,
@@ -123,7 +129,7 @@ export function handleDatabaseError(error: unknown): {
   }
   
   return {
-    message: 'Unknown database error occurred',
+    message: 'Unknown database error',
     statusCode: 500,
   };
 }
