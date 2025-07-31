@@ -1,20 +1,28 @@
-# Azure App Service iisnode configuration for Next.js VAPI application
+[command]
+# Azure App Service startup command
+npm start
 
-# Logging
-loggingEnabled: true
-logDirectory: iisnode
+[logging]
+# Enable detailed logging
+loggingEnabled=true
+logDirectory=logs
 
-# Performance
-nodeProcessCountPerApplication: 1
-maxConcurrentRequestsPerProcess: 1024
-maxNamedPipeConnectionRetry: 3
-namedPipeConnectionRetryDelay: 2000
+[node]
+# Node.js specific settings
+nodeProcessCountPerApplication=1
+maxConcurrentRequestsPerProcess=1024
 
-# Timeouts
-gracefulShutdownTimeout: 60000
+[environment]
+# Environment variables
+NODE_ENV=production
+WEBSITE_NODE_DEFAULT_VERSION=18-lts
 
-# Environment
-node_env: production
+[build]
+# Build configuration
+SCM_DO_BUILD_DURING_DEPLOYMENT=true
+ENABLE_ORYX_BUILD=true
 
-# Debugging (disabled for production)
-debuggingEnabled: false
+[prisma]
+# Prisma specific settings
+PRISMA_CLI_BINARY_TARGETS=native,linux-musl
+DATABASE_URL=${DATABASE_URL}
