@@ -533,31 +533,31 @@ export function CallLogs({ timeRange }: CallLogsProps) {
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <h4 className="text-lg font-medium text-gray-900">Basic Information</h4>
-                  <div className="space-y-2">
-                    <div><strong>Call ID:</strong> {callDetails.id}</div>
-                    <div><strong>Assistant ID:</strong> {callDetails.assistantId}</div>
-                    <div><strong>Status:</strong>
+                  <div className="space-y-2 text-gray-700">
+                    <div><strong className="text-gray-900">Call ID:</strong> {callDetails.id}</div>
+                    <div><strong className="text-gray-900">Assistant ID:</strong> {callDetails.assistantId}</div>
+                    <div><strong className="text-gray-900">Status:</strong>
                       <span className={`ml-2 px-2 py-1 rounded text-xs ${
                         callDetails.status === 'ended' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {callDetails.status}
                       </span>
                     </div>
-                    <div><strong>End Reason:</strong> {callDetails.endedReason || 'N/A'}</div>
-                    <div><strong>Phone Number:</strong> {callDetails.phoneNumber || 'N/A'}</div>
-                    <div><strong>Type:</strong> {callDetails.type || 'Unknown'}</div>
+                    <div><strong className="text-gray-900">End Reason:</strong> {callDetails.endedReason || 'N/A'}</div>
+                    <div><strong className="text-gray-900">Phone Number:</strong> {callDetails.phoneNumber || 'N/A'}</div>
+                    <div><strong className="text-gray-900">Type:</strong> {callDetails.type || 'Unknown'}</div>
                   </div>
                 </div>
 
                 {/* Timing & Duration */}
                 <div className="space-y-4">
                   <h4 className="text-lg font-medium text-gray-900">Timing & Duration</h4>
-                  <div className="space-y-2">
-                    <div><strong>Created:</strong> {new Date(callDetails.createdAt).toLocaleString()}</div>
-                    <div><strong>Started:</strong> {callDetails.startedAt ? new Date(callDetails.startedAt).toLocaleString() : 'N/A'}</div>
-                    <div><strong>Ended:</strong> {callDetails.endedAt ? new Date(callDetails.endedAt).toLocaleString() : 'N/A'}</div>
-                    <div><strong>Duration:</strong> {callDetails.duration ? `${Math.round(callDetails.duration)}s` : 'N/A'}</div>
-                    <div><strong>Cost:</strong> ${(callDetails.cost || 0).toFixed(2)}</div>
+                  <div className="space-y-2 text-gray-700">
+                    <div><strong className="text-gray-900">Created:</strong> {new Date(callDetails.createdAt).toLocaleString()}</div>
+                    <div><strong className="text-gray-900">Started:</strong> {callDetails.startedAt ? new Date(callDetails.startedAt).toLocaleString() : 'N/A'}</div>
+                    <div><strong className="text-gray-900">Ended:</strong> {callDetails.endedAt ? new Date(callDetails.endedAt).toLocaleString() : 'N/A'}</div>
+                    <div><strong className="text-gray-900">Duration:</strong> {callDetails.duration ? `${Math.round(callDetails.duration)}s` : 'N/A'}</div>
+                    <div><strong className="text-gray-900">Cost:</strong> ${(callDetails.cost || 0).toFixed(2)}</div>
                   </div>
                 </div>
               </div>

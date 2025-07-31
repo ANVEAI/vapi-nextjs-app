@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { botService } from '@/lib/services/botService';
 
 // VAPI Call Analytics API
 export async function GET(request: NextRequest) {
@@ -17,6 +18,19 @@ export async function GET(request: NextRequest) {
     const assistantId = searchParams.get('assistantId'); // Filter by specific bot
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
+
+    // Get user's bots from database to filter VAPI calls by user-owned assistants
+    const userBots = await botService.getBotsByUserId(userId);
+    const userAssistantIds = userBots
+      .map(bot => bot.vapiAssistantId)
+      .filter(id => id); // Remove null/undefined values
+
+    console.log(`🔍 Found ${userBots.length} bots for user ${userId}`);
+    console.log(`🎯 User assistant IDs: ${userAssistantIds.join(', ')}`);
+
+    // If user has no bots with VAPI assistants, show all calls from VAPI for now
+    // This allows users to see calls even if bot creation didn't complete properly
+    const shouldFilterByAssistant = userAssistantIds.length > 0;
 
     const VAPI_API_KEY = process.env.VAPI_PRIVATE_KEY;
     if (!VAPI_API_KEY) {
@@ -36,19 +50,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // Fetch calls from VAPI API with proper parameters
+      // Fetch calls from VAPI API using GET /call endpoint
       const vapiUrl = new URL('https://api.vapi.ai/call');
 
-      // Add query parameters based on VAPI API documentation
+      // Add query parameters
       vapiUrl.searchParams.set('limit', Math.min(limit, 1000).toString()); // VAPI max limit is 1000
 
       if (assistantId) {
-        // Note: VAPI API uses assistantId filter
         vapiUrl.searchParams.set('assistantId', assistantId);
       }
-
-      // Note: Date filtering will be done client-side for now
-      // VAPI API date parameters need to be verified
 
       console.log(`🔍 Fetching calls from VAPI API: ${vapiUrl.toString()}`);
 
@@ -72,12 +82,19 @@ export async function GET(request: NextRequest) {
       // VAPI returns an array of calls directly
       const calls = Array.isArray(vapiData) ? vapiData : [];
 
-      // Process calls - VAPI already filtered by date if we used createdAtGe
+      // Process calls - Filter by user's assistants and date range
       const filteredCalls = calls.filter((call: any) => {
-        // Additional client-side filtering if needed
+        // Date filtering
         if (!call.createdAt) return false;
         const callDate = new Date(call.createdAt);
-        return callDate >= startDate;
+        if (callDate < startDate) return false;
+
+        // If we should filter by assistant and user has assistants, filter by them
+        if (shouldFilterByAssistant && !userAssistantIds.includes(call.assistantId)) {
+          return false;
+        }
+
+        return true;
       });
 
       console.log(`📊 Processing ${filteredCalls.length} calls for analytics`);

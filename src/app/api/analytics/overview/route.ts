@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getUploadsInfo } from '@/lib/localFileStorage';
+import { getUploadsInfo, getUserUploadsInfo } from '@/lib/localFileStorage';
+import { botService } from '@/lib/services/botService';
+import { sessionService } from '@/lib/services/sessionService';
+import { callService } from '@/lib/services/callService';
 
-// In-memory registries
-declare global {
-  var botRegistry: Map<string, any>;
-  var sessionRegistry: Map<string, any>;
-}
-
-if (!global.botRegistry) {
-  global.botRegistry = new Map();
-}
-if (!global.sessionRegistry) {
-  global.sessionRegistry = new Map();
-}
-
-const botRegistry = global.botRegistry;
-const sessionRegistry = global.sessionRegistry;
+// Database storage using Prisma services
 
 // GET /api/analytics/overview - Comprehensive analytics overview
 export async function GET(request: NextRequest) {
@@ -41,10 +30,13 @@ export async function GET(request: NextRequest) {
       startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
     }
 
-    // Get local bot registry data
-    const allBots = Array.from(botRegistry.values());
-    const allSessions = Array.from(sessionRegistry.values());
-    const userBots = allBots.filter(bot => bot.userId === userId);
+    // Get bot data from database
+    const userBots = await botService.getBotsByUserId(userId);
+
+    // Get user's assistant IDs for filtering VAPI data
+    const userAssistantIds = userBots
+      .map(bot => bot.vapiAssistantId)
+      .filter(id => id); // Remove null/undefined values
 
     // Filter by time range
     const botsInRange = userBots.filter(bot => {
@@ -52,10 +44,8 @@ export async function GET(request: NextRequest) {
       return createdAt >= startDate;
     });
 
-    const sessionsInRange = allSessions.filter(session => {
-      const sessionDate = new Date(session.startTime);
-      return sessionDate >= startDate;
-    });
+    // Get session data from database
+    const sessionsInRange = await sessionService.getSessionsInRange(startDate, undefined, undefined);
 
     // Fetch real VAPI data
     const VAPI_API_KEY = process.env.VAPI_PRIVATE_KEY;
@@ -79,8 +69,16 @@ export async function GET(request: NextRequest) {
 
         if (callsResponse.ok) {
           const callsData = await callsResponse.json();
-          vapiCalls = Array.isArray(callsData) ? callsData : [];
-          console.log(`✅ Retrieved ${vapiCalls.length} calls from VAPI for overview`);
+          const allVapiCalls = Array.isArray(callsData) ? callsData : [];
+
+          // SECURITY FIX: Filter calls by user-owned assistants only
+          vapiCalls = allVapiCalls.filter((call: any) => {
+            // If user has no assistants, return empty array (no calls should be shown)
+            if (userAssistantIds.length === 0) return false;
+            return userAssistantIds.includes(call.assistantId);
+          });
+
+          console.log(`✅ Retrieved ${allVapiCalls.length} total calls, ${vapiCalls.length} user calls from VAPI for overview`);
         }
 
         // Fetch assistants from VAPI
@@ -94,8 +92,16 @@ export async function GET(request: NextRequest) {
 
         if (assistantsResponse.ok) {
           const assistantsData = await assistantsResponse.json();
-          vapiAssistants = Array.isArray(assistantsData) ? assistantsData : [];
-          console.log(`✅ Retrieved ${vapiAssistants.length} assistants from VAPI for overview`);
+          const allVapiAssistants = Array.isArray(assistantsData) ? assistantsData : [];
+
+          // SECURITY FIX: Filter assistants by user-owned assistants only
+          vapiAssistants = allVapiAssistants.filter((assistant: any) => {
+            // If user has no assistants, return empty array (no assistants should be shown)
+            if (userAssistantIds.length === 0) return false;
+            return userAssistantIds.includes(assistant.id);
+          });
+
+          console.log(`✅ Retrieved ${allVapiAssistants.length} total assistants, ${vapiAssistants.length} user assistants from VAPI for overview`);
         }
       } catch (vapiError) {
         console.warn('⚠️ VAPI API unavailable for overview, using local data only:', vapiError);
@@ -111,7 +117,7 @@ export async function GET(request: NextRequest) {
     const totalSessions = sessionsInRange.length;
     const activeSessions = sessionsInRange.filter(session => !session.endTime).length;
 
-    // File Storage Analytics
+    // File Storage Analytics - SECURITY FIX: Only count files from user's bots
     let fileStorageInfo = {
       totalBots: 0,
       totalFiles: 0,
@@ -120,9 +126,12 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      fileStorageInfo = await getUploadsInfo();
+      // Get UUIDs of user's bots for file filtering
+      const userBotUuids = userBots.map(bot => bot.uuid);
+      fileStorageInfo = await getUserUploadsInfo(userBotUuids);
+      console.log(`📊 User ${userId} file storage: ${fileStorageInfo.totalFiles} files, ${fileStorageInfo.totalSize} bytes`);
     } catch (error) {
-      console.warn('Failed to get file storage info:', error);
+      console.warn('Failed to get user file storage info:', error);
     }
 
     // VAPI Call Analytics using already fetched data
@@ -168,7 +177,7 @@ export async function GET(request: NextRequest) {
       return createdAt >= previousPeriodStart && createdAt < startDate;
     }).length;
 
-    const previousSessions = allSessions.filter(session => {
+    const previousSessions = sessionsInRange.filter(session => {
       const sessionDate = new Date(session.startTime);
       return sessionDate >= previousPeriodStart && sessionDate < startDate;
     }).length;

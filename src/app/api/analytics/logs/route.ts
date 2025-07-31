@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { botService } from '@/lib/services/botService';
 
 // GET /api/analytics/logs - Call logs and transcripts
 export async function GET(request: NextRequest) {
@@ -19,6 +20,19 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const status = searchParams.get('status'); // ended, failed, etc.
+
+    // Get user's bots from database to filter VAPI calls by user-owned assistants
+    const userBots = await botService.getBotsByUserId(userId);
+    const userAssistantIds = userBots
+      .map(bot => bot.vapiAssistantId)
+      .filter(id => id); // Remove null/undefined values
+
+    console.log(`🔍 Found ${userBots.length} bots for user ${userId}`);
+    console.log(`🎯 User assistant IDs: ${userAssistantIds.join(', ')}`);
+
+    // If user has no bots with VAPI assistants, show all calls from VAPI for now
+    // This allows users to see calls even if bot creation didn't complete properly
+    const shouldFilterByAssistant = userAssistantIds.length > 0;
 
     const VAPI_API_KEY = process.env.VAPI_PRIVATE_KEY;
     if (!VAPI_API_KEY) {
@@ -46,6 +60,14 @@ export async function GET(request: NextRequest) {
         }
 
         const callData = await callResponse.json();
+
+        // SECURITY CHECK: Verify user owns this call's assistant
+        if (userAssistantIds.length === 0 || !userAssistantIds.includes(callData.assistantId)) {
+          return NextResponse.json(
+            { success: false, error: 'Call not found or access denied' },
+            { status: 404 }
+          );
+        }
 
         // Fetch transcript and recording if available
         let transcript = null;
@@ -167,9 +189,22 @@ export async function GET(request: NextRequest) {
       }
 
       const filteredCalls = calls.filter((call: any) => {
+        // Date filtering
         if (!call.createdAt) return false;
         const callDate = new Date(call.createdAt);
-        return callDate >= startDate;
+        if (callDate < startDate) return false;
+
+        // Status filtering if specified
+        if (status && call.status !== status) {
+          return false;
+        }
+
+        // If we should filter by assistant and user has assistants, filter by them
+        if (shouldFilterByAssistant && !userAssistantIds.includes(call.assistantId)) {
+          return false;
+        }
+
+        return true;
       });
 
       // Process calls for display using VAPI data structure

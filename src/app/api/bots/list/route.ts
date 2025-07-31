@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { botService } from '@/lib/services/botService';
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -7,33 +9,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Temporary in-memory storage (replace with database in production)
-// Use global to persist across hot reloads in development
-const globalForBots = globalThis as unknown as {
-  botRegistry: Map<string, any> | undefined;
-};
-
-const botRegistry = globalForBots.botRegistry ?? new Map<string, any>();
-globalForBots.botRegistry = botRegistry;
-
 export async function GET(request: NextRequest) {
   try {
-    // Convert registry to array for easier viewing
-    const bots = Array.from(botRegistry.entries()).map(([uuid, bot]) => ({
-      uuid,
+    const { userId } = await auth();
+
+    // Get bots from database
+    const bots = userId
+      ? await botService.getBotsByUserId(userId)
+      : await botService.getAllBots();
+
+    // Convert to expected format with complete bot data
+    const formattedBots = bots.map(bot => ({
+      uuid: bot.uuid,
       name: bot.name,
       status: bot.status,
       vapiAssistantId: bot.vapiAssistantId,
       createdAt: bot.createdAt,
-      updatedAt: bot.updatedAt
+      updatedAt: bot.createdAt, // Using createdAt as updatedAt for compatibility
+      documentsProcessed: bot.documentsProcessed,
+      ragEnabled: bot.ragEnabled,
+      embedCode: bot.embedCode,
+      activationScheduledAt: bot.activationScheduledAt,
+      welcomeMessage: bot.welcomeMessage,
+      systemPrompt: bot.systemPrompt,
+      language: bot.language,
+      voice: bot.voice,
+      position: bot.position,
+      theme: bot.theme,
+      ragSourceType: bot.ragSourceType,
+      ragUrl: bot.ragUrl,
+      localFilesStored: bot.localFilesStored,
+      activatedAt: bot.activatedAt
     }));
 
-    console.log(`📊 Found ${bots.length} bots in registry`);
+    console.log(`📊 Found ${formattedBots.length} bots in database`);
 
     const response = NextResponse.json({
       success: true,
-      count: bots.length,
-      bots: bots
+      count: formattedBots.length,
+      bots: formattedBots
     });
 
     // Add CORS headers

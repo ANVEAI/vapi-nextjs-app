@@ -236,23 +236,23 @@ export async function getUploadsInfo(): Promise<{
 }> {
   try {
     const botDirs = await readdir(UPLOADS_BASE_DIR);
-    const botUuids = botDirs.filter(dir => 
-      dir !== '.gitignore' && 
-      dir !== 'README.md' && 
+    const botUuids = botDirs.filter(dir =>
+      dir !== '.gitignore' &&
+      dir !== 'README.md' &&
       !dir.startsWith('.')
     );
-    
+
     let totalFiles = 0;
     let totalSize = 0;
     const botsWithFiles: string[] = [];
-    
+
     for (const botUuid of botUuids) {
       try {
         const files = await listBotFiles(botUuid);
         if (files.length > 0) {
           botsWithFiles.push(botUuid);
           totalFiles += files.length;
-          
+
           // Calculate total size
           for (const file of files) {
             const filePath = path.join(UPLOADS_BASE_DIR, botUuid, file);
@@ -265,7 +265,7 @@ export async function getUploadsInfo(): Promise<{
         continue;
       }
     }
-    
+
     return {
       totalBots: botUuids.length,
       totalFiles,
@@ -274,6 +274,64 @@ export async function getUploadsInfo(): Promise<{
     };
   } catch (error) {
     console.error('❌ Failed to get uploads info:', error);
+    throw error;
+  }
+}
+
+// Get uploads directory info filtered by user's bots (for user analytics)
+export async function getUserUploadsInfo(userBotUuids: string[]): Promise<{
+  totalBots: number;
+  totalFiles: number;
+  totalSize: number;
+  botsWithFiles: string[];
+}> {
+  try {
+    // If user has no bots, return empty stats
+    if (!userBotUuids || userBotUuids.length === 0) {
+      return {
+        totalBots: 0,
+        totalFiles: 0,
+        totalSize: 0,
+        botsWithFiles: []
+      };
+    }
+
+    let totalFiles = 0;
+    let totalSize = 0;
+    const botsWithFiles: string[] = [];
+
+    // Only check directories for user's bots
+    for (const botUuid of userBotUuids) {
+      try {
+        const files = await listBotFiles(botUuid);
+        if (files.length > 0) {
+          botsWithFiles.push(botUuid);
+          totalFiles += files.length;
+
+          // Calculate total size
+          for (const file of files) {
+            const filePath = path.join(UPLOADS_BASE_DIR, botUuid, file);
+            const fileStat = await stat(filePath);
+            totalSize += fileStat.size;
+          }
+        }
+      } catch (error) {
+        // Skip problematic directories (bot might not have files)
+        console.warn(`⚠️ Could not access files for bot ${botUuid}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`📊 User file storage: ${totalFiles} files across ${botsWithFiles.length}/${userBotUuids.length} bots`);
+
+    return {
+      totalBots: userBotUuids.length,
+      totalFiles,
+      totalSize,
+      botsWithFiles
+    };
+  } catch (error) {
+    console.error('❌ Failed to get user uploads info:', error);
     throw error;
   }
 }

@@ -180,7 +180,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
           type="text"
           value={config.botName}
           onChange={(e) => setConfig(prev => ({ ...prev, botName: e.target.value }))}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
             errors.botName ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="e.g., Customer Support Bot"
@@ -195,7 +195,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
         <textarea
           value={config.welcomeMessage}
           onChange={(e) => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
             errors.welcomeMessage ? 'border-red-500' : 'border-gray-300'
           }`}
           rows={3}
@@ -211,13 +211,13 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
         <select
           onChange={(e) => {
             if (e.target.value && SAMPLE_PROMPTS[e.target.value as keyof typeof SAMPLE_PROMPTS]) {
-              setConfig(prev => ({ 
-                ...prev, 
-                systemPrompt: SAMPLE_PROMPTS[e.target.value as keyof typeof SAMPLE_PROMPTS] 
+              setConfig(prev => ({
+                ...prev,
+                systemPrompt: SAMPLE_PROMPTS[e.target.value as keyof typeof SAMPLE_PROMPTS]
               }));
             }
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
         >
           <option value="">Choose a template...</option>
           <option value="basic">Basic Assistant</option>
@@ -236,7 +236,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
         <textarea
           value={config.systemPrompt}
           onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
             errors.systemPrompt ? 'border-red-500' : 'border-gray-300'
           }`}
           rows={4}
@@ -257,7 +257,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
           <select
             value={config.language}
             onChange={(e) => setConfig(prev => ({ ...prev, language: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
           >
             {LANGUAGE_OPTIONS.map(lang => (
               <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -272,7 +272,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
           <select
             value={config.voice}
             onChange={(e) => setConfig(prev => ({ ...prev, voice: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
           >
             {VOICE_OPTIONS.map(voice => (
               <option key={voice.value} value={voice.value}>{voice.label}</option>
@@ -286,7 +286,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
           Position
         </label>
         <div className="flex space-x-4">
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="radio"
               name="position"
@@ -297,7 +297,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
             />
             Right Side
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="radio"
               name="position"
@@ -316,7 +316,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
           Theme
         </label>
         <div className="flex space-x-4">
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="radio"
               name="theme"
@@ -327,7 +327,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
             />
             Light Theme
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="radio"
               name="theme"
@@ -353,7 +353,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
       </div>
 
       <div>
-        <label className="flex items-center space-x-3">
+        <label className="flex items-center space-x-3 text-gray-700">
           <input
             type="checkbox"
             checked={config.ragEnabled}
@@ -373,7 +373,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
               Knowledge Source
             </label>
             <div className="space-y-2">
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-700">
                 <input
                   type="radio"
                   name="ragSourceType"
@@ -384,7 +384,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
                 />
                 Upload Documents (PDF, TXT, DOCX)
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-700">
                 <input
                   type="radio"
                   name="ragSourceType"
@@ -408,7 +408,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
                 multiple
                 accept=".pdf,.txt,.docx,.doc"
                 onChange={handleFileUpload}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
               />
               {config.ragFiles.length > 0 && (
                 <div className="mt-2">
@@ -433,7 +433,7 @@ export function CreateBotModal({ isOpen, onClose, onBotCreated }: CreateBotModal
                 type="url"
                 value={config.ragUrl}
                 onChange={(e) => setConfig(prev => ({ ...prev, ragUrl: e.target.value }))}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
                   errors.ragUrl ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="https://example.com"
