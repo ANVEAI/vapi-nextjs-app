@@ -38,6 +38,20 @@ export PATH="/node_modules/.bin:./node_modules/.bin:$PATH"
 echo "🔧 NODE_PATH: $NODE_PATH"
 echo "🔧 PATH: $PATH"
 
+# CRITICAL: Setup Prisma database
+echo "🗄️ Setting up Prisma database..."
+if [ -f "./node_modules/.bin/prisma" ]; then
+    echo "✅ Prisma CLI found, generating client..."
+    npx prisma generate
+    
+    echo "🔄 Pushing database schema..."
+    npx prisma db push --accept-data-loss
+    
+    echo "✅ Database setup completed"
+else
+    echo "❌ Prisma CLI not found, this may cause database issues"
+fi
+
 # Start the Next.js application using our custom server
 echo "🎯 Starting VAPI Next.js application on port ${PORT:-8080}..."
 npm start

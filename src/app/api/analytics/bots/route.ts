@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { botService } from '@/lib/services/botService';
 
-// In-memory bot registry (same as in create route)
-declare global {
-  var botRegistry: Map<string, any>;
-}
-
-if (!global.botRegistry) {
-  global.botRegistry = new Map();
-}
-
-const botRegistry = global.botRegistry;
+// Database storage using Prisma services
 
 // GET /api/analytics/bots - Bot usage analytics
 export async function GET(request: NextRequest) {
@@ -25,13 +17,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const timeRange = searchParams.get('timeRange') || '30d'; // 7d, 30d, 90d, all
-    const userFilter = searchParams.get('userFilter') || 'all'; // all, current
 
-    // Get local bot registry data
-    const allBots = Array.from(botRegistry.values());
-    const filteredBots = userFilter === 'current'
-      ? allBots.filter(bot => bot.userId === userId)
-      : allBots;
+    // Get bot data from database - ALWAYS filter by current user for security
+    const filteredBots = await botService.getBotsByUserId(userId);
+
+    // Get user's assistant IDs for filtering VAPI data
+    const userAssistantIds = filteredBots
+      .map(bot => bot.vapiAssistantId)
+      .filter(id => id); // Remove null/undefined values
 
     // Calculate time range
     const now = new Date();
@@ -42,7 +35,7 @@ export async function GET(request: NextRequest) {
       startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
     }
 
-    // Filter local bots by time range
+    // Filter bots by time range
     const botsInRange = filteredBots.filter(bot => {
       const createdAt = new Date(bot.createdAt);
       return createdAt >= startDate;
@@ -66,8 +59,16 @@ export async function GET(request: NextRequest) {
 
         if (assistantsResponse.ok) {
           const assistantsData = await assistantsResponse.json();
-          vapiAssistants = Array.isArray(assistantsData) ? assistantsData : [];
-          console.log(`✅ Retrieved ${vapiAssistants.length} assistants from VAPI for bot analytics`);
+          const allVapiAssistants = Array.isArray(assistantsData) ? assistantsData : [];
+
+          // SECURITY FIX: Filter assistants by user-owned assistants only
+          vapiAssistants = allVapiAssistants.filter((assistant: any) => {
+            // If user has no assistants, return empty array (no assistants should be shown)
+            if (userAssistantIds.length === 0) return false;
+            return userAssistantIds.includes(assistant.id);
+          });
+
+          console.log(`✅ Retrieved ${allVapiAssistants.length} total assistants, ${vapiAssistants.length} user assistants from VAPI for bot analytics`);
         }
 
         // Fetch calls to get usage data
@@ -85,8 +86,16 @@ export async function GET(request: NextRequest) {
 
         if (callsResponse.ok) {
           const callsData = await callsResponse.json();
-          vapiCalls = Array.isArray(callsData) ? callsData : [];
-          console.log(`✅ Retrieved ${vapiCalls.length} calls from VAPI for bot analytics`);
+          const allVapiCalls = Array.isArray(callsData) ? callsData : [];
+
+          // SECURITY FIX: Filter calls by user-owned assistants only
+          vapiCalls = allVapiCalls.filter((call: any) => {
+            // If user has no assistants, return empty array (no calls should be shown)
+            if (userAssistantIds.length === 0) return false;
+            return userAssistantIds.includes(call.assistantId);
+          });
+
+          console.log(`✅ Retrieved ${allVapiCalls.length} total calls, ${vapiCalls.length} user calls from VAPI for bot analytics`);
         }
       } catch (vapiError) {
         console.warn('⚠️ VAPI API unavailable for bot analytics, using local data only:', vapiError);
@@ -104,26 +113,26 @@ export async function GET(request: NextRequest) {
     const ragDisabledBots = totalBots - ragEnabledBots;
 
     // Calculate call usage per assistant from VAPI data
-    const assistantCallCounts = {};
-    vapiCalls.forEach(call => {
+    const assistantCallCounts: Record<string, number> = {};
+    vapiCalls.forEach((call: any) => {
       if (call.assistantId) {
         assistantCallCounts[call.assistantId] = (assistantCallCounts[call.assistantId] || 0) + 1;
       }
     });
 
     // Bot creation trends (group by day)
-    const creationTrends = {};
+    const creationTrends: Record<string, number> = {};
     botsInRange.forEach(bot => {
       const date = new Date(bot.createdAt).toISOString().split('T')[0];
       creationTrends[date] = (creationTrends[date] || 0) + 1;
     });
 
     // Top performing bots combining local and VAPI data
-    const topBots = [];
+    const topBots: any[] = [];
 
     // Add local bots with their call counts from VAPI
     botsInRange.forEach(bot => {
-      const callCount = assistantCallCounts[bot.assistantId] || 0;
+      const callCount = assistantCallCounts[bot.vapiAssistantId || ''] || 0;
       topBots.push({
         uuid: bot.uuid,
         name: bot.name,
@@ -135,8 +144,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Add VAPI assistants that might not be in local registry
-    vapiAssistants.forEach(assistant => {
-      const existsInLocal = botsInRange.some(bot => bot.assistantId === assistant.id);
+    vapiAssistants.forEach((assistant: any) => {
+      const existsInLocal = botsInRange.some(bot => bot.vapiAssistantId === assistant.id);
       if (!existsInLocal) {
         const callCount = assistantCallCounts[assistant.id] || 0;
         topBots.push({
@@ -156,8 +165,8 @@ export async function GET(request: NextRequest) {
       .slice(0, 10);
 
     // Voice and language distribution from local and VAPI data
-    const voiceDistribution = {};
-    const languageDistribution = {};
+    const voiceDistribution: Record<string, number> = {};
+    const languageDistribution: Record<string, number> = {};
 
     // Count from local bots
     botsInRange.forEach(bot => {
@@ -169,7 +178,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Count from VAPI assistants
-    vapiAssistants.forEach(assistant => {
+    vapiAssistants.forEach((assistant: any) => {
       const voice = assistant.voice?.voiceId || assistant.voice?.provider || 'unknown';
       const language = assistant.transcriber?.language || 'unknown';
 
@@ -193,7 +202,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       timeRange,
-      userFilter,
       analytics: {
         overview: {
           totalBots,
@@ -223,8 +231,8 @@ export async function GET(request: NextRequest) {
       },
       metadata: {
         generatedAt: new Date().toISOString(),
-        totalBotsInSystem: allBots.length,
-        userBotsCount: allBots.filter(bot => bot.userId === userId).length
+        totalBotsInSystem: filteredBots.length,
+        userBotsCount: filteredBots.length
       }
     });
 

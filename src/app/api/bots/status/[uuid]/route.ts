@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { botService } from '@/lib/services/botService';
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -7,14 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Temporary in-memory storage (replace with database in production)
-// Use global to persist across hot reloads in development
-const globalForBots = globalThis as unknown as {
-  botRegistry: Map<string, any> | undefined;
-};
-
-const botRegistry = globalForBots.botRegistry ?? new Map<string, any>();
-globalForBots.botRegistry = botRegistry;
+// Database storage using Prisma services
 
 export async function GET(
   request: NextRequest,
@@ -34,11 +28,10 @@ export async function GET(
       return response;
     }
 
-    // Get bot from registry
-    const bot = botRegistry.get(uuid);
+    // Get bot from database
+    const bot = await botService.getBotByUuid(uuid);
 
     console.log(`🔍 Looking for bot ${uuid}, found:`, bot ? 'YES' : 'NO');
-    console.log(`📊 Registry size: ${botRegistry.size}`);
 
     if (!bot) {
       const response = NextResponse.json(
@@ -57,30 +50,35 @@ export async function GET(
     const shouldBeActive = now >= activationTime;
 
     // Update status if needed
+    let updatedBot = bot;
     if (shouldBeActive && bot.status === 'pending') {
-      bot.status = 'activating';
-      botRegistry.set(uuid, bot);
-      
+      const statusUpdate = await botService.updateBotStatus(uuid, 'activating');
+      if (statusUpdate) {
+        updatedBot = statusUpdate;
+      }
+
       // In a real implementation, trigger VAPI assistant creation here
       console.log(`🔄 Bot ${uuid} should be activated now`);
-      
+
       // Simulate activation process
-      setTimeout(() => {
-        bot.status = 'active';
-        bot.vapiAssistantId = `vapi_assistant_${uuid.substring(0, 8)}`;
-        botRegistry.set(uuid, bot);
+      setTimeout(async () => {
+        const finalBot = await botService.updateBot(uuid, {
+          ...updatedBot,
+          status: 'active',
+          vapiAssistantId: `vapi_assistant_${uuid.substring(0, 8)}`,
+        });
         console.log(`✅ Bot ${uuid} activated successfully`);
       }, 5000);
     }
 
     const response = NextResponse.json({
       success: true,
-      status: bot.status,
-      uuid: bot.uuid,
-      name: bot.name,
-      activationScheduledAt: bot.activationScheduledAt,
-      vapiAssistantId: bot.vapiAssistantId,
-      activatedAt: bot.activatedAt
+      status: updatedBot.status,
+      uuid: updatedBot.uuid,
+      name: updatedBot.name,
+      activationScheduledAt: updatedBot.activationScheduledAt,
+      vapiAssistantId: updatedBot.vapiAssistantId,
+      activatedAt: updatedBot.activatedAt
     });
 
     // Add CORS headers

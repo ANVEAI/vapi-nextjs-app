@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { v4 as uuidv4 } from 'uuid';
-import { saveBotToSheets, createBotFolder, uploadFileToGoogleDrive, extractFolderIdFromLink } from '@/lib/googleService';
+import { uploadRagFilesToDrive, createEmptyRagBot } from '@/lib/googleService';
 import {
   initializeUploadsDirectory,
   saveFileToBot,
   saveBotMetadata,
   createBotDirectory
 } from '@/lib/localFileStorage';
+import { botService } from '@/lib/services/botService';
+import { userService } from '@/lib/services/userService';
+import { documentService } from '@/lib/services/documentService';
 
 // Types
 interface BotConfig {
@@ -54,6 +57,7 @@ interface ProcessedDocument {
   size: number;
   content: string;
   chunks: string[];
+  originalFileBuffer?: Buffer; // Add original binary data for PDFs
   metadata: {
     pages?: number;
     wordCount?: number;
@@ -66,9 +70,20 @@ function generateUUID(): string {
   return uuidv4();
 }
 
-function generateEmbedCode(botUuid: string, config: BotConfig): string {
-  // In production, replace with your actual domain
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+function generateEmbedCode(botUuid: string, config: BotConfig, request?: NextRequest): string {
+  // Dynamic domain detection for embedding
+  let baseUrl: string;
+
+  if (request) {
+    // Extract domain from the request headers
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') ||
+                    (host?.includes('localhost') ? 'http' : 'https');
+    baseUrl = `${protocol}://${host}`;
+  } else {
+    // Fallback to environment variable or localhost for development
+    baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  }
 
   return `<script defer src="${baseUrl}/js/external-chatbot-voice.js" data-chatbot-uuid="${botUuid}" data-language="${config.language}" data-position="${config.position}" data-theme="${config.theme}"></script>`;
 }
@@ -81,8 +96,24 @@ function scheduleActivation(botUuid: string): string {
 }
 
 async function processDocumentContent(file: File): Promise<ProcessedDocument> {
-  const content = await file.text();
-  
+  let content: string;
+  let originalFileBuffer: Buffer;
+
+  // Handle different file types properly
+  if (file.type === 'application/pdf') {
+    // For PDFs, preserve the original binary data
+    const arrayBuffer = await file.arrayBuffer();
+    originalFileBuffer = Buffer.from(arrayBuffer);
+
+    // For RAG processing, we'll use a placeholder text
+    // In a production system, you'd use a PDF parser like pdf-parse
+    content = `[PDF Document: ${file.name}]\nThis is a PDF file that requires specialized parsing for text extraction. The original binary content is preserved for download and viewing.`;
+  } else {
+    // For text files, convert to text as usual
+    content = await file.text();
+    originalFileBuffer = Buffer.from(content, 'utf-8');
+  }
+
   // Simple text chunking (can be improved with more sophisticated methods)
   const chunks = content
     .split(/\n\s*\n/) // Split by double newlines
@@ -95,6 +126,7 @@ async function processDocumentContent(file: File): Promise<ProcessedDocument> {
     size: file.size,
     content,
     chunks,
+    originalFileBuffer, // Add the original binary data
     metadata: {
       wordCount: content.split(/\s+/).length,
       processedAt: new Date().toISOString()
@@ -180,20 +212,14 @@ function getVoiceId(voiceName: string): string {
   return voiceMap[voiceName] || voiceMap['jennifer'];
 }
 
-// In-memory storage (replace with database in production)
-// Use global to persist across hot reloads in development
-const globalForBots = globalThis as unknown as {
-  botRegistry: Map<string, any> | undefined;
-};
-
-const botRegistry = globalForBots.botRegistry ?? new Map<string, any>();
-globalForBots.botRegistry = botRegistry;
+// Database storage using Prisma services
 
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const { userId } = await auth();
-    if (!userId) {
+    const user = await currentUser();
+    if (!userId || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -258,7 +284,11 @@ export async function POST(request: NextRequest) {
         // Save each file locally
         for (const doc of processedDocuments) {
           try {
-            const fileBuffer = Buffer.from(doc.content, 'utf-8');
+            // Use original binary data for PDFs, text content for other files
+            const fileBuffer = doc.type === 'application/pdf' && doc.originalFileBuffer
+              ? doc.originalFileBuffer
+              : Buffer.from(doc.content, 'utf-8');
+
             const filePath = await saveFileToBot(
               botUuid,
               doc.name,
@@ -295,8 +325,56 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate embed code
-    const embedCode = generateEmbedCode(botUuid, config);
+    // 📤 GOOGLE DRIVE UPLOAD - Handle RAG-enabled bots (with or without files)
+    if (config.ragEnabled && config.ragSourceType === 'files') {
+      try {
+        if (processedDocuments.length > 0) {
+          // Upload files to Google Drive and log to Sheets
+          console.log(`📤 Uploading ${processedDocuments.length} RAG files to Google Drive for bot: ${config.botName}`);
+
+          // Prepare files for Google Drive upload with proper content handling
+          const filesToUpload = processedDocuments.map(doc => {
+            // Handle different content types properly
+            let fileBuffer: Buffer;
+            if (doc.type === 'application/pdf') {
+              // For PDFs, use the original binary data
+              fileBuffer = doc.originalFileBuffer || Buffer.from(doc.content, 'utf-8');
+            } else {
+              // For text files, use UTF-8 encoding
+              fileBuffer = Buffer.from(doc.content, 'utf-8');
+            }
+
+            return {
+              name: doc.name,
+              content: fileBuffer,
+              mimeType: doc.type || 'text/plain'
+            };
+          });
+
+          // Upload files to Google Drive and log to Google Sheets
+          const uploadedFileLinks = await uploadRagFilesToDrive(
+            config.botName,
+            botUuid,
+            filesToUpload
+          );
+
+          console.log(`✅ Google Drive upload complete: ${uploadedFileLinks.length} files uploaded and logged`);
+        } else {
+          // Create empty bot folder and log to Sheets for RAG-enabled bots without files
+          console.log(`📁 Creating empty RAG bot folder for: ${config.botName}`);
+          await createEmptyRagBot(config.botName, botUuid);
+          console.log(`✅ Empty RAG bot folder created and logged for bot ${config.botName}`);
+        }
+      } catch (googleDriveError) {
+        console.error('❌ Google Drive/Sheets operation failed:', googleDriveError);
+        // Continue with bot creation even if Google Drive upload fails
+      }
+
+
+    }
+
+    // Generate embed code with dynamic domain detection
+    const embedCode = generateEmbedCode(botUuid, config, request);
 
     // Schedule activation for 24 hours (safety net)
     const activationScheduledAt = scheduleActivation(botUuid);
@@ -331,7 +409,7 @@ export async function POST(request: NextRequest) {
       ragSourceType: config.ragSourceType || 'files',
       ragUrl: config.ragUrl || '',
       userId: userId,
-      status: botStatus,
+      status: botStatus as 'pending' | 'activating' | 'active' | 'failed',
       createdAt: new Date().toISOString(),
       activationScheduledAt: activationScheduledAt,
       embedCode: embedCode,
@@ -339,95 +417,47 @@ export async function POST(request: NextRequest) {
       vapiAssistantId: vapiAssistant?.id,
       vapiKnowledgeBaseId: undefined,
       localFilesStored: localFilesPaths.length,
-      localStoragePath: localFilesPaths.length > 0 ? `uploads/${botUuid}` : undefined,
-      activatedAt: botStatus === 'active' ? new Date().toISOString() : undefined
+      localStoragePath: localFilesPaths.length > 0 ? `uploads/${botUuid}` : undefined
     };
 
-    // Store in registry (temporary storage)
-    botRegistry.set(botUuid, botRecord);
+    // Ensure user exists in database
+    await userService.upsertUser({
+      id: userId,
+      email: user.emailAddresses[0]?.emailAddress || '',
+      firstName: user.firstName || undefined,
+      lastName: user.lastName || undefined,
+      imageUrl: user.imageUrl || undefined,
+    });
 
-    // Save to Google Sheets and Drive (5 columns)
-    try {
-      console.log('💾 Saving bot data to Google Sheets and Drive...');
+    // Store bot in database
+    const savedBot = await botService.createBot(botRecord);
 
-      // Determine knowledge base type and content
-      let knowledgeBaseType = '';
-      let knowledgeBaseContent = '';
-      let driveFolderLink = '';
-
-      if (config.ragEnabled && config.ragSourceType === 'files') {
-        // RAG is enabled with files
-        if (processedDocuments.length > 0) {
-          // Files were successfully processed - show file types
-          const fileTypes = [...new Set(processedDocuments.map(doc => {
-            const ext = doc.name.split('.').pop()?.toLowerCase();
-            return ext || 'unknown';
-          }))];
-          knowledgeBaseType = fileTypes.join(', ');
-          knowledgeBaseContent = processedDocuments.map(doc => doc.name).join(', ');
-
-          // Create Google Drive folder and upload files
-          driveFolderLink = await createBotFolder(config.botName);
-          const driveFolderId = extractFolderIdFromLink(driveFolderLink);
-
-          // Upload each file to Google Drive
-          for (const doc of processedDocuments) {
-            await uploadFileToGoogleDrive(
-              doc.name,
-              Buffer.from(doc.content, 'utf-8'),
-              'text/plain',
-              driveFolderId
-            );
-          }
-        } else {
-          // RAG enabled with files but no files processed (error case)
-          knowledgeBaseType = 'File (Upload Failed)';
-          knowledgeBaseContent = 'No files processed (upload failed)';
-          // Still create folder for consistency
-          driveFolderLink = await createBotFolder(config.botName);
+    // Store documents in database (after bot is created)
+    if (processedDocuments.length > 0) {
+      try {
+        for (const doc of processedDocuments) {
+          await documentService.createDocument({
+            name: doc.name,
+            type: doc.type,
+            size: doc.size,
+            content: doc.content,
+            chunks: doc.chunks,
+            pages: doc.metadata.pages,
+            wordCount: doc.metadata.wordCount,
+            filePath: localFilesPaths.find(path => path.includes(doc.name)),
+            botUuid: botUuid,
+          });
         }
-      } else if (config.ragEnabled && config.ragSourceType === 'url' && config.ragUrl && config.ragUrl.trim().length > 0) {
-        // URL was provided
-        knowledgeBaseType = 'URL';
-        knowledgeBaseContent = config.ragUrl;
-        driveFolderLink = ''; // No folder needed for URLs
-      } else if (config.ragEnabled) {
-        // RAG enabled but no valid source
-        knowledgeBaseType = 'RAG Enabled (No Source)';
-        knowledgeBaseContent = 'RAG enabled but no valid files or URL provided';
-        driveFolderLink = '';
-      } else {
-        // No knowledge base
-        knowledgeBaseType = 'None';
-        knowledgeBaseContent = 'None';
-        driveFolderLink = '';
+        console.log(`✅ Database storage complete: ${processedDocuments.length} documents saved for bot ${botUuid}`);
+      } catch (dbStorageError) {
+        console.error('❌ Database document storage failed:', dbStorageError);
+        // Continue even if database storage fails
       }
-
-      // Prepare data for Google Sheets (5 columns)
-      const sheetData = {
-        creationDateTime: new Date().toLocaleString('en-US', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }),
-        botName: config.botName,
-        knowledgeBaseType: knowledgeBaseType,
-        knowledgeBaseContent: knowledgeBaseContent,
-        driveFolderLink: driveFolderLink
-      };
-
-      // Save to Google Sheets
-      await saveBotToSheets(sheetData);
-
-      console.log('✅ Bot data saved to Google Sheets and Drive successfully');
-    } catch (googleError) {
-      console.error('❌ Failed to save to Google Sheets/Drive:', googleError);
-      // Continue execution - don't fail bot creation if Google integration fails
     }
+
+    // Note: Google Drive upload and Sheets logging is now handled in the uploadRagFilesToDrive function above
+
+
 
     console.log(`✅ Bot created successfully: ${config.botName} (${botUuid})`);
     console.log(`📄 Documents processed: ${processedDocuments.length}`);
@@ -487,8 +517,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all bots for the user from registry
-    const userBots = Array.from(botRegistry.values()).filter(bot => bot.userId === userId);
+    // Get all bots for the user from database
+    const userBots = await botService.getBotsByUserId(userId);
 
     return NextResponse.json({
       success: true,
@@ -497,8 +527,10 @@ export async function GET(request: NextRequest) {
         name: bot.name,
         status: bot.status,
         createdAt: bot.createdAt,
-        documentsCount: bot.documents?.length || 0,
-        ragEnabled: bot.ragEnabled
+        documentsCount: bot.documentsProcessed || 0,
+        ragEnabled: bot.ragEnabled,
+        embedCode: bot.embedCode,
+        activationScheduledAt: bot.activationScheduledAt
       }))
     });
 

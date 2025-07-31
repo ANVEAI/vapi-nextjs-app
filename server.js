@@ -10,6 +10,62 @@ const dev = false;
 const hostname = '0.0.0.0';
 const port = process.env.PORT || 8080;
 
+// Function to run Prisma setup
+async function setupPrisma() {
+  console.log('🗄️ Setting up Prisma database...');
+  
+  return new Promise((resolve, reject) => {
+    // First, generate Prisma client
+    console.log('🔄 Generating Prisma client...');
+    const generateProcess = spawn('npx', ['prisma', 'generate'], {
+      stdio: 'inherit',
+      cwd: __dirname
+    });
+
+    generateProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log('✅ Prisma client generated successfully');
+        
+        // Then, push database schema
+        console.log('🔄 Pushing database schema...');
+        const pushProcess = spawn('npx', ['prisma', 'db', 'push', '--accept-data-loss'], {
+          stdio: 'inherit',
+          cwd: __dirname
+        });
+
+        pushProcess.on('close', (pushCode) => {
+          if (pushCode === 0) {
+            console.log('✅ Database schema pushed successfully');
+            resolve();
+          } else {
+            console.error(`❌ Database schema push failed with code ${pushCode}`);
+            // Don't reject here, continue with app startup
+            console.log('⚠️ Continuing with app startup despite database setup issues...');
+            resolve();
+          }
+        });
+
+        pushProcess.on('error', (error) => {
+          console.error('❌ Error during database schema push:', error);
+          console.log('⚠️ Continuing with app startup despite database setup issues...');
+          resolve();
+        });
+
+      } else {
+        console.error(`❌ Prisma client generation failed with code ${code}`);
+        console.log('⚠️ Continuing with app startup despite Prisma setup issues...');
+        resolve();
+      }
+    });
+
+    generateProcess.on('error', (error) => {
+      console.error('❌ Error during Prisma client generation:', error);
+      console.log('⚠️ Continuing with app startup despite Prisma setup issues...');
+      resolve();
+    });
+  });
+}
+
 // Function to find Next.js binary
 function findNextBinary() {
   const possiblePaths = [
@@ -108,6 +164,9 @@ async function startServer() {
     console.log(`📍 Working directory: ${__dirname}`);
     console.log(`🔧 Node version: ${process.version}`);
     console.log(`🌐 Port: ${port}`);
+
+    // CRITICAL: Setup Prisma database first
+    await setupPrisma();
 
     // Ensure build is complete
     await ensureBuild();

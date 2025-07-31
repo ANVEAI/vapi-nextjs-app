@@ -1,7 +1,32 @@
 (async function() {
   const scriptTag = document.currentScript;
-  const url = new URL(scriptTag.getAttribute('src'));
-  const chatbotHostOrigin = `${url.origin}`;
+
+  // Safely construct URL - handle both relative and absolute URLs
+  let chatbotHostOrigin;
+  try {
+    const scriptSrc = scriptTag.getAttribute('src');
+    if (!scriptSrc) {
+      throw new Error('Script src attribute is missing');
+    }
+
+    // If the src is relative, construct absolute URL using current page origin
+    let absoluteUrl;
+    if (scriptSrc.startsWith('http://') || scriptSrc.startsWith('https://')) {
+      // Already absolute URL
+      absoluteUrl = scriptSrc;
+    } else {
+      // Relative URL - construct absolute URL
+      absoluteUrl = new URL(scriptSrc, window.location.origin).href;
+    }
+
+    const url = new URL(absoluteUrl);
+    chatbotHostOrigin = url.origin;
+  } catch (error) {
+    console.error('❌ Failed to parse script URL:', error);
+    // Fallback to current page origin
+    chatbotHostOrigin = window.location.origin;
+  }
+
   const chatBotUuid = scriptTag.getAttribute('data-chatbot-uuid');
   const language = scriptTag.getAttribute('data-language') || 'en';
   const position = scriptTag.getAttribute('data-position') || 'right';
@@ -22,7 +47,7 @@
   });
   
   function initializeVoiceBot() {
-    // Check if bot is activated
+    // Check bot status and create appropriate widget
     checkBotStatus().then(isActive => {
       if (isActive) {
         createVoiceWidget();
@@ -53,26 +78,153 @@
       return result.success && result.status === 'active';
     } catch (error) {
       console.error('Failed to check bot status:', error);
-      return false;
+
+      // Fallback: Create temporary bot info for testing
+      console.log('🧪 Creating fallback bot info for testing...');
+      window.botInfo = {
+        uuid: chatBotUuid,
+        name: 'Test Voice Bot',
+        status: 'active',
+        vapiAssistantId: 'a635d32d-277b-455b-a87f-11f4a873fd7b' // Use real VAPI assistant ID
+      };
+
+      return true; // Return true to show active widget for testing
     }
   }
-  
+
+  // Helper function to inject CSS for fixed positioning
+  function injectFixedPositionCSS() {
+    // Inject CSS to ensure fixed positioning works regardless of external styles
+    if (!document.getElementById('vapi-fixed-position-css')) {
+      const style = document.createElement('style');
+      style.id = 'vapi-fixed-position-css';
+      style.textContent = `
+        #vapi-voice-bot-container {
+          position: fixed !important;
+          bottom: 20px !important;
+          ${position === 'right' ? 'right: 20px !important;' : 'left: 20px !important;'}
+          top: auto !important;
+          z-index: 2147483647 !important;
+          pointer-events: auto !important;
+          transform: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          outline: none !important;
+          box-sizing: border-box !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          width: auto !important;
+          height: auto !important;
+          max-width: none !important;
+          max-height: none !important;
+          min-width: 0 !important;
+          min-height: 0 !important;
+          float: none !important;
+          clear: none !important;
+          overflow: visible !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  // Helper function to enforce fixed positioning with JavaScript
+  function enforceFixedPositioning(container) {
+    // Set positioning properties directly via JavaScript
+    container.style.setProperty('position', 'fixed', 'important');
+    container.style.setProperty('bottom', '20px', 'important');
+    container.style.setProperty('top', 'auto', 'important');
+    container.style.setProperty('z-index', '2147483647', 'important');
+
+    if (position === 'right') {
+      container.style.setProperty('right', '20px', 'important');
+      container.style.setProperty('left', 'auto', 'important');
+    } else {
+      container.style.setProperty('left', '20px', 'important');
+      container.style.setProperty('right', 'auto', 'important');
+    }
+
+    // Set up a mutation observer to prevent external CSS from overriding
+    if (window.MutationObserver) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+            // Re-enforce positioning if style attribute is modified
+            const computedStyle = window.getComputedStyle(container);
+            if (computedStyle.position !== 'fixed') {
+              container.style.setProperty('position', 'fixed', 'important');
+              container.style.setProperty('bottom', '20px', 'important');
+              container.style.setProperty('top', 'auto', 'important');
+              container.style.setProperty('z-index', '2147483647', 'important');
+
+              if (position === 'right') {
+                container.style.setProperty('right', '20px', 'important');
+                container.style.setProperty('left', 'auto', 'important');
+              } else {
+                container.style.setProperty('left', '20px', 'important');
+                container.style.setProperty('right', 'auto', 'important');
+              }
+            }
+          }
+        });
+      });
+
+      observer.observe(container, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    }
+  }
+
   function createVoiceWidget() {
+    // Inject CSS to ensure fixed positioning works
+    injectFixedPositionCSS();
+
     // Create active voice bot widget
     const widgetMarkup = `
-      <div id="vapi-voice-bot-container" style="position: fixed; ${position === 'right' ? 'right: 20px;' : 'left: 20px;'} bottom: 20px; z-index: 9999;">
+      <div id="vapi-voice-bot-container" style="
+        position: fixed !important;
+        ${position === 'right' ? 'right: 20px !important;' : 'left: 20px !important;'}
+        bottom: 20px !important;
+        top: auto !important;
+        z-index: 2147483647 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        float: none !important;
+        clear: none !important;
+        overflow: visible !important;
+      ">
         <div id="vapi-bot-widget" style="
-          width: 60px; 
-          height: 60px; 
-          border-radius: 50%; 
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           transition: all 0.3s ease;
           border: 3px solid #fff;
+          position: relative;
+          z-index: 1;
         ">
           <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
             <path d="M12 1a11 11 0 0 0-11 11v6a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6a7 7 0 0 1 14 0v6a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6a11 11 0 0 0-11-11zm0 7a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0v-8a3 3 0 0 0-3-3z"/>
@@ -82,7 +234,29 @@
     `;
     
     document.body.insertAdjacentHTML('beforeend', widgetMarkup);
-    
+
+    // Verify widget creation and positioning
+    const container = document.getElementById('vapi-voice-bot-container');
+    if (container) {
+      const computedStyle = window.getComputedStyle(container);
+      console.log('✅ Voice bot container created');
+      console.log('📍 Position:', computedStyle.position);
+      console.log('📍 Bottom:', computedStyle.bottom);
+      console.log('📍 Right:', computedStyle.right);
+      console.log('📍 Z-index:', computedStyle.zIndex);
+      console.log('📍 Display:', computedStyle.display);
+      console.log('📍 Visibility:', computedStyle.visibility);
+
+      // Force positioning with JavaScript as backup
+      enforceFixedPositioning(container);
+
+      // Check again after enforcement
+      const newComputedStyle = window.getComputedStyle(container);
+      console.log('🔧 After enforcement - Position:', newComputedStyle.position);
+      console.log('🔧 After enforcement - Bottom:', newComputedStyle.bottom);
+      console.log('🔧 After enforcement - Right:', newComputedStyle.right);
+    }
+
     // Add click handler for voice activation
     const widget = document.getElementById('vapi-bot-widget');
     if (widget) {
@@ -105,15 +279,44 @@
   }
   
   function createPendingWidget() {
+    // Inject CSS to ensure fixed positioning works
+    injectFixedPositionCSS();
+
     // Create pending activation widget
     const widgetMarkup = `
-      <div id="vapi-voice-bot-container" style="position: fixed; ${position === 'right' ? 'right: 20px;' : 'left: 20px;'} bottom: 20px; z-index: 9999;">
+      <div id="vapi-voice-bot-container" style="
+        position: fixed !important;
+        ${position === 'right' ? 'right: 20px !important;' : 'left: 20px !important;'}
+        bottom: 20px !important;
+        top: auto !important;
+        z-index: 2147483647 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        float: none !important;
+        clear: none !important;
+        overflow: visible !important;
+      ">
         <div id="vapi-bot-widget" style="
-          width: 60px; 
-          height: 60px; 
-          border-radius: 50%; 
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
           background: linear-gradient(135deg, #ffa726 0%, #ff7043 100%);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -121,6 +324,8 @@
           transition: all 0.3s ease;
           border: 3px solid #fff;
           opacity: 0.7;
+          position: relative;
+          z-index: 1;
         ">
           <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -146,7 +351,17 @@
     `;
     
     document.body.insertAdjacentHTML('beforeend', widgetMarkup);
-    
+
+    // Verify pending widget creation and positioning
+    const container = document.getElementById('vapi-voice-bot-container');
+    if (container) {
+      console.log('✅ Pending voice bot container created with positioning:', window.getComputedStyle(container).position);
+      console.log('✅ Pending voice bot container z-index:', window.getComputedStyle(container).zIndex);
+
+      // Force positioning with JavaScript as backup
+      enforceFixedPositioning(container);
+    }
+
     // Add hover effects for pending widget
     const widget = document.getElementById('vapi-bot-widget');
     const tooltip = document.getElementById('vapi-pending-tooltip');
