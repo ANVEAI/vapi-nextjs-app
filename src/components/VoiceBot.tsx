@@ -214,7 +214,16 @@ export function VoiceBot() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div
+      className="fixed bottom-6 right-6 z-[9999]"
+      style={{
+        position: 'fixed',
+        bottom: '1.5rem',
+        right: '1.5rem',
+        zIndex: 9999,
+        pointerEvents: 'auto'
+      }}
+    >
       <div className="relative">
         {/* Voice bot button */}
         <button
@@ -222,17 +231,21 @@ export function VoiceBot() {
           disabled={!isLoaded}
           className={`
             w-16 h-16 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-            ${isActive 
-              ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700" 
+            ${isActive
+              ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
               : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
             }
             ${isListening ? "animate-pulse" : ""}
             ${!isLoaded ? "opacity-50 cursor-not-allowed" : "hover:scale-110"}
           `}
+          style={{
+            position: 'relative',
+            zIndex: 1
+          }}
         >
-          <svg 
-            className="w-8 h-8 text-white" 
-            fill="currentColor" 
+          <svg
+            className="w-8 h-8 text-white"
+            fill="currentColor"
             viewBox="0 0 24 24"
           >
             {isActive ? (

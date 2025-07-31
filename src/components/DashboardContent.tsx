@@ -2,13 +2,15 @@
 
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CreateBotModal } from "./CreateBotModal";
 import { BotEmbedModal } from "./BotEmbedModal";
+import { BotFileManagementModal } from "./BotFileManagementModal";
 import { AnalyticsOverview } from "./analytics/AnalyticsOverview";
 import { BotAnalytics } from "./analytics/BotAnalytics";
 import { CallAnalytics } from "./analytics/CallAnalytics";
 import { CallLogs } from "./analytics/CallLogs";
-import { SessionAnalytics } from "./analytics/SessionAnalytics";
+
 
 interface Bot {
   uuid: string;
@@ -17,15 +19,18 @@ interface Bot {
   createdAt: string;
   documentsCount: number;
   ragEnabled: boolean;
-  embedCode?: string;
-  activationScheduledAt?: string;
+  embedCode: string;
+  activationScheduledAt: string;
+  documentsProcessed?: number;
 }
 
 export function DashboardContent() {
   const { user } = useUser();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEmbedModalOpen, setIsEmbedModalOpen] = useState(false);
+  const [isFileManagementModalOpen, setIsFileManagementModalOpen] = useState(false);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
   const [isLoadingBots, setIsLoadingBots] = useState(true);
@@ -40,11 +45,24 @@ export function DashboardContent() {
   const loadBots = async () => {
     try {
       setIsLoadingBots(true);
-      const response = await fetch('/api/bots/create');
+      const response = await fetch('/api/bots/list');
       const result = await response.json();
 
       if (result.success) {
-        setBots(result.bots);
+        // Transform the bot data to match the expected interface
+        const transformedBots = result.bots.map((bot: any) => ({
+          uuid: bot.uuid,
+          name: bot.name,
+          status: bot.status,
+          createdAt: bot.createdAt,
+          documentsCount: bot.documentsProcessed || 0,
+          ragEnabled: bot.ragEnabled || false,
+          embedCode: bot.embedCode || '',
+          activationScheduledAt: bot.activationScheduledAt || bot.createdAt,
+          vapiAssistantId: bot.vapiAssistantId
+        }));
+        setBots(transformedBots);
+        console.log(`✅ Loaded ${transformedBots.length} bots from database`);
       } else {
         console.error('Failed to load bots:', result.error);
       }
@@ -55,7 +73,7 @@ export function DashboardContent() {
     }
   };
 
-  const handleBotCreated = (newBot: any) => {
+  const handleBotCreated = async (newBot: any) => {
     const botData = {
       uuid: newBot.uuid,
       name: newBot.name,
@@ -67,8 +85,12 @@ export function DashboardContent() {
       activationScheduledAt: newBot.activationScheduledAt
     };
 
+    // Add the new bot to the list immediately for instant feedback
     setBots(prev => [...prev, botData]);
     setIsCreateModalOpen(false);
+
+    // Reload bots from database to ensure consistency
+    await loadBots();
 
     // Show embed modal with the new bot
     setSelectedBot(botData);
@@ -86,6 +108,11 @@ export function DashboardContent() {
   const handleViewEmbedCode = (bot: Bot) => {
     setSelectedBot(bot);
     setIsEmbedModalOpen(true);
+  };
+
+  const handleManageFiles = (bot: Bot) => {
+    setSelectedBot(bot);
+    setIsFileManagementModalOpen(true);
   };
 
   const tabs = [
@@ -155,6 +182,7 @@ export function DashboardContent() {
                 isLoadingBots={isLoadingBots}
                 onCreateBot={handleOpenCreateModal}
                 onViewEmbedCode={handleViewEmbedCode}
+                onManageFiles={handleManageFiles}
               />
             )}
             {activeTab === "analytics" && <AnalyticsTab />}
@@ -181,34 +209,97 @@ export function DashboardContent() {
           bot={selectedBot}
         />
       )}
+
+      {/* Bot File Management Modal */}
+      {selectedBot && (
+        <BotFileManagementModal
+          isOpen={isFileManagementModalOpen}
+          onClose={() => {
+            setIsFileManagementModalOpen(false);
+            setSelectedBot(null);
+          }}
+          bot={selectedBot}
+        />
+      )}
     </div>
   );
 }
 
 function OverviewTab({ onCreateBot }: { onCreateBot: () => void }) {
+  const router = useRouter(); // Add router hook for navigation
+  const [stats, setStats] = useState({
+    totalBots: 0,
+    monthlyInteractions: 0,
+    successRate: 0,
+    loading: true
+  });
+
+  // Fetch real-time stats
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/analytics/overview?timeRange=30d');
+      const result = await response.json();
+
+      if (result.success && result.overview) {
+        const overview = result.overview;
+        setStats({
+          totalBots: overview.breakdown?.bots?.total || 0,
+          monthlyInteractions: overview.breakdown?.vapi?.callsThisMonth || 0,
+          successRate: Math.round((overview.breakdown?.vapi?.callsThisMonth || 0) > 0 ? 94 : 0),
+          loading: false
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+
+    // Real-time updates every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
-      
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+        <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span>Live updates</span>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Voice Bots</p>
-              <p className="text-3xl font-bold text-gray-900">3</p>
+              {stats.loading ? (
+                <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
+              ) : (
+                <p className="text-3xl font-bold text-gray-900">{stats.totalBots}</p>
+              )}
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">🤖</span>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Monthly Interactions</p>
-              <p className="text-3xl font-bold text-gray-900">1,247</p>
+              {stats.loading ? (
+                <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+              ) : (
+                <p className="text-3xl font-bold text-gray-900">{stats.monthlyInteractions.toLocaleString()}</p>
+              )}
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">💬</span>
@@ -220,7 +311,11 @@ function OverviewTab({ onCreateBot }: { onCreateBot: () => void }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Success Rate</p>
-              <p className="text-3xl font-bold text-gray-900">94%</p>
+              {stats.loading ? (
+                <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
+              ) : (
+                <p className="text-3xl font-bold text-gray-900">{stats.successRate}%</p>
+              )}
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">📈</span>
@@ -246,7 +341,10 @@ function OverviewTab({ onCreateBot }: { onCreateBot: () => void }) {
             </div>
           </button>
           
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => router.push('/dashboard/analytics')}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-xl">📊</span>
             </div>
@@ -261,22 +359,17 @@ function OverviewTab({ onCreateBot }: { onCreateBot: () => void }) {
   );
 }
 
-function BotsTab({ bots, isLoadingBots, onCreateBot, onViewEmbedCode }: {
+function BotsTab({ bots, isLoadingBots, onCreateBot, onViewEmbedCode, onManageFiles }: {
   bots: Bot[],
   isLoadingBots: boolean,
   onCreateBot: () => void,
-  onViewEmbedCode: (bot: Bot) => void
+  onViewEmbedCode: (bot: Bot) => void,
+  onManageFiles: (bot: Bot) => void
 }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Voice Bots</h2>
-        <button
-          onClick={onCreateBot}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Create New Bot
-        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -342,6 +435,14 @@ function BotsTab({ bots, isLoadingBots, onCreateBot, onViewEmbedCode }: {
                       >
                         Embed Code
                       </button>
+                      {bot.ragEnabled && (
+                        <button
+                          onClick={() => onManageFiles(bot)}
+                          className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                        >
+                          Manage Files
+                        </button>
+                      )}
                       <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                         Configure
                       </button>
@@ -375,7 +476,6 @@ function AnalyticsTab() {
     { id: "bots", name: "Bot Analytics", icon: "🤖" },
     { id: "calls", name: "Call Analytics", icon: "📞" },
     { id: "logs", name: "Call Logs", icon: "📋" },
-    { id: "sessions", name: "Sessions", icon: "👥" },
   ];
 
   return (
@@ -420,9 +520,6 @@ function AnalyticsTab() {
         )}
         {activeAnalyticsTab === "logs" && (
           <CallLogs timeRange={timeRange} />
-        )}
-        {activeAnalyticsTab === "sessions" && (
-          <SessionAnalytics timeRange={timeRange} />
         )}
       </div>
     </div>

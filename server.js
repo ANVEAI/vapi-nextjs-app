@@ -2,125 +2,141 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const fs require('fsfs
+const pathth = requirepathpath');
 
-// Force production mode for Azure
-const dev = false;
-const hostname = '0.0.0.0';
-const port = process.env.PORT || 8080;
+d sst.v.vN=_p ocess.ons.NODE_ENVt!n=a'production'process.env.HOSTNAME || 'localhost';
+const port = parsprocessnenv(HOSTNAME || clocalhost'ess.env.PORT || '8080', 10);
+aseInt(pr'', 10)
+// Initialize Next.js app
+conI pn(alizedev, hosteppport });
+shappi sh({f rva ne)lRunnipmr; }) const process = spawn(command, args, { stdio: 'inherit', shell: true });
+cess.osand == appcgo=RlqHndl s()
+   reject(new Error(`Command failed with code ${code}`));
+// Ulit to  rceshe.o comm )ds
+Comdc mma{,ag=[] { console.log('🔧 Generating Prisma client...');
+    console.log('✅ Prisma client generated successfully');
+  } catcorror;`🔧Rnn:${cma} ${rgs}`)
+}pcmmanags/n to run Prisma mashelln trua 
+    
+awaipommand('npx', ['prisma', 'migrate', 'deploy']);
+    coe.log('✅ Prisma migrations completed successfully');
+  } catcwarn('⚠️ Prisma migrations failed (this might be expected):', error.message);
+    //'t throw - migrations might fail in some environments
+  }Comman
 
-// Function to find Next.js binary
-function findNextBinary() {
-  const possiblePaths = [
-    './node_modules/.bin/next',
-    '/node_modules/.bin/next',
-    path.join(__dirname, 'node_modules', '.bin', 'next'),
-    path.join(__dirname, '..', 'node_modules', '.bin', 'next')
-  ];
-
-  for (const binPath of possiblePaths) {
-    if (fs.existsSync(binPath)) {
-      console.log(`Found Next.js binary at: ${binPath}`);
-      return binPath;
-    }
-  }
-
-  console.log('Next.js binary not found in expected locations');
-  return null;
-}
-
-// Function to run Next.js build
-function runBuild() {
-  return new Promise((resolve, reject) => {
-    const nextBin = findNextBinary();
-    if (!nextBin) {
-      console.log('Attempting to build using node_modules/next/dist/bin/next');
-      const nextScript = path.join(__dirname, 'node_modules', 'next', 'dist', 'bin', 'next');
-      if (fs.existsSync(nextScript)) {
-        const buildProcess = spawn('node', [nextScript, 'build'], {
-          stdio: 'inherit',
-          cwd: __dirname
-        });
-
-        buildProcess.on('close', (code) => {
-          if (code === 0) {
-            console.log('✅ Build completed successfully');
-            resolve();
-          } else {
-            console.error(`❌ Build failed with code ${code}`);
-            reject(new Error(`Build failed with code ${code}`));
-          }
-        });
-      } else {
-        reject(new Error('Could not find Next.js binary or script'));
-      }
-    } else {
-      const buildProcess = spawn(nextBin, ['build'], {
-        stdio: 'inherit',
-        cwd: __dirname
-      });
-
-      buildProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log('✅ Build completed successfully');
-          resolve();
-        } else {
-          console.error(`❌ Build failed with code ${code}`);
-          reject(new Error(`Build failed with code ${code}`));
-        }
-      });
-    }
+// Fion to test database connection
+asyn
+c u procnst.on('error', (irror) =>on testDatabaseConnection() {
+try {
+  con);sole.log('🔍 Testing database connection...');
   });
+c
+PrismaClient } = require('@prisma/client');
+//oFunntist porrsn = iPmasgenerate
+amyic func)ornPrsmaGenerate()
+  try {
+conole.lg('🔧GeatngaPrismaitl.ect...'so    await prisma.$disconnect();
+} caawaht runCmmad'npx', [prima'genrato']a;base connection failed:', error.message);
+row error;Prsmaient genra
+}catch(err
+'FognnaeuePlisma csn:',errr.mssagction ensureBuild() {
+ conthrowserrorb(!fs.existsSync(buildPath)) {
+   onsole.log('🏗️ Build not found, creating build...');
+    try {
+      await runCommand('npm', ['run', 'build']);
+  lF.tc c'ounPrmamigratos
+    } catch (erruoPrirmaMig at{ {
+  try
+        ole.log('🗄️oRunning Prisma migral.ons...');
+  roaw(i' runCummaldd'npx', ['prisma', 'migldt'', edoploym]essage);
+     onsole.log('✅ Prisma migrati    completedhsuccessfo ;y');
+ }cc rro){
+      }ol.wan('⚠️ Pisma mgationsfiled (is mght be peced):'rro.messag  } else {
+       Don'tctnrowo-Bmigladiinscmrgh xfiil iss;omenvonmnt
+ }
 }
 
-// Check if build is needed (if .next directory doesn't exist or is incomplete)
-async function ensureBuild() {
-  const nextDir = path.join(__dirname, '.next');
-  const buildIdFile = path.join(nextDir, 'BUILD_ID');
-  const serverDir = path.join(nextDir, 'server');
+//Fn t tedatabe cnncion
+async fnctonttDaabaeCocon({
+try{
+console.log('🔍Testingdatabaseconnection...');
+const{PrismaClient}=requir('@prma/nt';
+constprisma=newPrismaClient();
 
-  // Check if .next directory exists and has required files for production
-  const hasCompleteeBuild = fs.existsSync(nextDir) &&
-                           fs.existsSync(buildIdFile) &&
-                           fs.existsSync(serverDir);
-
-  if (!hasCompleteeBuild) {
-    if (fs.existsSync(nextDir)) {
-      console.log('🔨 .next directory exists but build is incomplete, running build...');
-    } else {
-      console.log('🔨 .next directory not found, running build...');
-    }
-    await runBuild();
-  } else {
-    console.log('✅ Complete .next build found, skipping build');
+awa prima.$conet// Main server startup function
+ ascconsole.log '✅ Dntabace cinnsction succassfSr'e;) {
+  trawayt{prima$donc();
+  } catch (eror
+    nsole.loerr(r🚀❌tDatabase corntcniongfaVled:', eAror.mPssage);
+     heowt.rror;
   }
 }
 
-// When using middleware `hostname` and `port` must be provided below
-const app = next({ dev, hostname, port, dir: '.' });
-const handle = app.getRequestHandler();
+// Functson Pooensuretion Seexrvts
+asyncefu..ionensueBld() {
+  costPath = pathjoin(__dirname, 'next
+  if (!fo.lxistsSync(buildPath))e.log('===============================================');
+    nsole.log(`🌍🏗️nBunldv ? 'developcmeat' : 'production'}`);
+    try {onsole.log(`🔗 Host: ${hostname}`);
+      console.lCommand('npm', ['rgn', 'bu(`'] Port: ${port}`);
+     // Step 1: GeneBuild cate Prisccesfly
+      catc  ( rror) {
+      cocsole.error('❌oBnold.farr(d:',rerrmr.measege);
+andeo th);wrrr;
+ Cna}
+y } el tw{
+it     olo('✅ Build dircory xis'
+  }
+}
 
-// Start the application
-async function startServer() {
-  try {
-    console.log('🚀 Starting VAPI Next.js application...');
-    console.log(`📍 Working directory: ${__dirname}`);
-    console.log(`🔧 Node version: ${process.version}`);
-    console.log(`🌐 Port: ${port}`);
+   M/ints rver2st:rtu  fun atabase migrations
+    try {
+      await runPrismaMigrate();
+    } catch (error) {Produ Server
+      console.er'==============================================='ror);
+      // Continue🌍nEnvirwnment: ${ayv? 'delpmet' 'dut'
+    }🔗Hshsname
+�Port
+        // Step 3: Test database connection
+    tryStep 1: Geerateclin
+      await testDatabaseConnection();
+    } onsole.error('❌ Database connection test failed:', error);
+    } c/ochn(etror) {
+      console.error('❌ ue any yene - ion failad:', errorp might still work
+Coninuenywy- migh work wthut it
+    }
 
-    // Ensure build is complete
-    await ensureBuild();
+//  // Slep 2: Ru xistsmigras
+    eryns
+u     await runreBuilM)grae();
+   catch(or {
+ole.error('❌Pmigaton fld:', error
+    //// Ce tiNue anyway
+    }
+ app
+    // Stepc3:oTeltPdeparing Next.js ap
+    tryp{;
+    await aptertDatabp)eCion
 
-    // Prepare Next.js app
-    console.log('⚙️ Preparing Next.js application...');
-    await app.prepare();
-
-    // Create and start server
-    const server = createServer(async (req, res) => {
+    // Step 6: Create  Databaseaconnect onrtetsver
+    co//eateServe arywnyeq)>ppightsill
       try {
-        // Be sure to pass `true` as the second argument to `url.parse`.
-        // This tells it to parse the query portion of the URL.
+        // Add CORS headers for development
+       Step 4:  if (dev) {exs
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+       Step 5:    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        }
+
+        // Handle preflight requests
+       Step 6:  if (req.method === 'OPTIONS') {
+          res.writeHead(200);
+          res.end();
+          return;
+        }d
+
+        // Parse URL and handle request
         const parsedUrl = parse(req.url, true);
         await handle(req, res, parsedUrl);
       } catch (err) {
@@ -129,23 +145,6 @@ async function startServer() {
         res.end('internal server error');
       }
     });
-
     server.once('error', (err) => {
-      console.error('❌ Server error:', err);
-      process.exit(1);
-    });
 
-    server.listen(port, hostname, () => {
-      console.log(`✅ Server ready on http://${hostname}:${port}`);
-      console.log(`🎯 Environment: ${dev ? 'development' : 'production'}`);
-      console.log(`📦 Next.js version: ${require('next/package.json').version}`);
-    });
-
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
-// Start the server
-startServer();
+      procPSr

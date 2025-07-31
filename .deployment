@@ -1,2 +1,24 @@
-[config]
-command = startup.sh
+# Azure App Service deployment configuration
+version: 1.0
+
+# Build configuration
+build:
+  commands:
+    - echo "Installing dependencies..."
+    - npm ci
+    - echo "Generating Prisma client..."
+    - npx prisma generate
+    - echo "Building application..."
+    - npm run build
+
+# Runtime configuration
+runtime:
+  version: "18"
+  
+# Startup command
+startup:
+  command: "npm start"
+  
+# Environment
+environment:
+  NODE_ENV: "production"

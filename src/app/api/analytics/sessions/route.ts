@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { sessionService } from '@/lib/services/sessionService';
 
-// In-memory session tracking (in a real app, this would be in a database)
-declare global {
-  var sessionRegistry: Map<string, any>;
-}
-
-if (!global.sessionRegistry) {
-  global.sessionRegistry = new Map();
-}
-
-const sessionRegistry = global.sessionRegistry;
+// Database storage using Prisma services
 
 // GET /api/analytics/sessions - Session analytics
 export async function GET(request: NextRequest) {
@@ -38,34 +30,33 @@ export async function GET(request: NextRequest) {
       startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
     }
 
-    // Get all sessions
-    const allSessions = Array.from(sessionRegistry.values());
-    
-    // Filter sessions by time range and bot
-    const filteredSessions = allSessions.filter(session => {
-      const sessionDate = new Date(session.startTime);
-      const inTimeRange = sessionDate >= startDate;
-      const matchesBot = !botUuid || session.botUuid === botUuid;
-      return inTimeRange && matchesBot;
-    });
+    // Get sessions from database with filters
+    const filteredSessions = await sessionService.getSessionsInRange(
+      startDate,
+      undefined,
+      botUuid || undefined
+    );
+
+    // Filter by user if needed (sessions should already be filtered by user in the service)
+    const userFilteredSessions = filteredSessions.filter(session => session.userId === userId);
 
     // Pagination
     const startIndex = (page - 1) * limit;
-    const paginatedSessions = filteredSessions.slice(startIndex, startIndex + limit);
+    const paginatedSessions = userFilteredSessions.slice(startIndex, startIndex + limit);
 
     // Calculate analytics
-    const totalSessions = filteredSessions.length;
-    const activeSessions = filteredSessions.filter(session => !session.endTime).length;
-    const completedSessions = filteredSessions.filter(session => session.endTime).length;
+    const totalSessions = userFilteredSessions.length;
+    const activeSessions = userFilteredSessions.filter(session => !session.endTime).length;
+    const completedSessions = userFilteredSessions.filter(session => session.endTime).length;
 
     // Session duration statistics
-    const sessionsWithDuration = filteredSessions.filter(session => 
+    const sessionsWithDuration = userFilteredSessions.filter(session =>
       session.endTime && session.startTime
     );
 
     const durations = sessionsWithDuration.map(session => {
       const start = new Date(session.startTime).getTime();
-      const end = new Date(session.endTime).getTime();
+      const end = new Date(session.endTime!).getTime();
       return (end - start) / 1000; // Duration in seconds
     });
 
@@ -102,14 +93,14 @@ export async function GET(request: NextRequest) {
     };
 
     // Session trends (group by day)
-    const sessionTrends = {};
+    const sessionTrends: Record<string, number> = {};
     filteredSessions.forEach(session => {
       const date = new Date(session.startTime).toISOString().split('T')[0];
       sessionTrends[date] = (sessionTrends[date] || 0) + 1;
     });
 
     // Sessions by bot
-    const sessionsByBot = {};
+    const sessionsByBot: Record<string, any> = {};
     filteredSessions.forEach(session => {
       const botId = session.botUuid || 'unknown';
       if (!sessionsByBot[botId]) {
@@ -154,7 +145,7 @@ export async function GET(request: NextRequest) {
       }));
 
     // Peak hours analysis
-    const hourlyDistribution = {};
+    const hourlyDistribution: Record<number, number> = {};
     filteredSessions.forEach(session => {
       const hour = new Date(session.startTime).getHours();
       hourlyDistribution[hour] = (hourlyDistribution[hour] || 0) + 1;
@@ -245,24 +236,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { botUuid, userAgent, ipAddress } = body;
 
-    // Create new session
+    // Create new session in database
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const session = {
-      id: sessionId,
+
+    const session = await sessionService.createSession({
+      sessionId,
       botUuid,
       userId,
-      startTime: new Date().toISOString(),
-      endTime: null,
       userAgent,
       ipAddress,
-      interactions: 0
-    };
-
-    sessionRegistry.set(sessionId, session);
+    });
 
     return NextResponse.json({
       success: true,
-      sessionId,
+      sessionId: session.sessionId,
       message: 'Session tracking started'
     });
 
